@@ -1,0 +1,101 @@
+.tabla-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+thead th {
+  text-align: left;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-suave);
+  padding: var(--esp-3) var(--esp-4);
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-2);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: var(--esp-3) var(--esp-4);
+  border-bottom: 1px solid var(--borde);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr {
+  transition: background var(--transicion);
+}
+
+#facturas-body tr:hover {
+  background: var(--superficie-2);
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+td.tipo-comprobante {
+  font-weight: 700;
+  text-align: center;
+}
+
+td.total {
+  font-weight: 700;
+}
+
+td.acciones {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.fila-anulada td:not(.acciones) {
+  opacity: 0.65;
+}
+
+#tabla-items td input,
+#tabla-items td select {
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-chico);
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  min-width: 5.5rem;
+}
+
+#tabla-items .selector input {
+  min-width: 9rem;
+}
+
+#tabla-items td input:focus,
+#tabla-items td select:focus {
+  outline: none;
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--acento-suave);
+}
+
+td.ref {
+  color: var(--texto-suave);
+}
+
+td.subtotal {
+  font-weight: 600;
+}
+
+.fila-vacia td {
+  text-align: center;
+  color: var(--texto-suave);
+  padding: var(--esp-5);
+}

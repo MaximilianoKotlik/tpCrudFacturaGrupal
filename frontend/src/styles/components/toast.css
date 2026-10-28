@@ -1,0 +1,68 @@
+#toasts {
+  position: fixed;
+  right: var(--esp-4);
+  bottom: var(--esp-4);
+  display: grid;
+  gap: var(--esp-3);
+  z-index: 1000;
+  width: min(360px, calc(100vw - 2rem));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-3);
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--acento);
+  border-radius: var(--radio-chico);
+  box-shadow: var(--sombra-modal);
+  padding: var(--esp-3) var(--esp-4);
+  animation: aparecer 180ms ease;
+  transition: opacity 200ms ease;
+}
+
+.toast-exito {
+  border-left-color: var(--verde);
+}
+
+.toast-error {
+  border-left-color: var(--peligro);
+}
+
+.toast-icono {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.toast-exito .toast-icono {
+  color: var(--verde);
+}
+
+.toast-error .toast-icono {
+  color: var(--peligro);
+}
+
+.toast-texto {
+  flex: 1;
+  font-size: 0.88rem;
+  /* Respeta los saltos de línea: ARCA puede devolver varios errores u observaciones. */
+  white-space: pre-line;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.toast-cerrar {
+  background: none;
+  border: none;
+  color: var(--texto-suave);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0 0 var(--esp-2);
+}
+
+.toast-salida {
+  opacity: 0;
+}

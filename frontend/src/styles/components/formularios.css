@@ -1,0 +1,190 @@
+.filtros-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--esp-4);
+}
+
+.filtros-acciones {
+  display: flex;
+  gap: var(--esp-3);
+  margin-top: var(--esp-4);
+}
+
+.campo {
+  display: grid;
+  gap: var(--esp-1);
+  align-content: start;
+}
+
+.campo label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.campo input,
+.campo select {
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-chico);
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+  transition: border-color var(--transicion), box-shadow var(--transicion);
+}
+
+.campo input:focus,
+.campo select:focus {
+  outline: none;
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--acento-suave);
+}
+
+.campo [aria-invalid="true"] {
+  border-color: var(--peligro);
+}
+
+.error {
+  color: var(--peligro);
+  font-size: 0.82rem;
+  margin-top: var(--esp-2);
+}
+
+small.error {
+  min-height: 1.1em;
+  display: block;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-4);
+}
+
+.campo-ancho {
+  grid-column: 1 / -1;
+}
+
+fieldset {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-chico);
+  padding: var(--esp-4);
+  margin: 0 0 var(--esp-4);
+  display: grid;
+  gap: var(--esp-3);
+}
+
+legend {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-suave);
+  padding-inline: var(--esp-2);
+}
+
+@media (max-width: 820px) {
+  .filtros-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .filtros-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.selector {
+  display: flex;
+  gap: var(--esp-2);
+  align-items: center;
+}
+
+.selector input {
+  flex: 1;
+  min-width: 0;
+}
+
+input[readonly] {
+  cursor: default;
+  background: var(--superficie-2);
+}
+
+/* Lupa dentro del input de búsqueda (explorers). */
+.input-lupa {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-lupa-icono {
+  position: absolute;
+  left: 0.7rem;
+  display: inline-flex;
+  color: var(--texto-suave);
+  pointer-events: none;
+}
+
+.campo .input-lupa input {
+  padding-left: 2.2rem;
+}
+
+/* Paginador reutilizable (tabla de facturas y explorers). */
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--esp-3);
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.paginador-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+}
+
+.paginador-pagina {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.paginador-tamanio {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.paginador-tamanio select {
+  font: inherit;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-chico);
+  padding: 0.25rem 0.4rem;
+}
+
+#paginador-facturas {
+  padding: var(--esp-3) var(--esp-4);
+  border-top: 1px solid var(--borde);
+}
+
+.bloque {
+  display: block;
+}
+
+.texto-suave {
+  color: var(--texto-suave);
+}
+
+fieldset > .btn {
+  justify-self: start;
+}

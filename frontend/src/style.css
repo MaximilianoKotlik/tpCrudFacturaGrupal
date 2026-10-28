@@ -1,0 +1,10 @@
+@import "./styles/tokens.css";
+@import "./styles/base.css";
+@import "./styles/layout.css";
+@import "./styles/components/botones.css";
+@import "./styles/components/formularios.css";
+@import "./styles/components/tabla.css";
+@import "./styles/components/modal.css";
+@import "./styles/components/badges.css";
+@import "./styles/components/toast.css";
+@import "./styles/components/estados.css";

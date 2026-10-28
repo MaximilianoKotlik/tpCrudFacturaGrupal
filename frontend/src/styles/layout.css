@@ -1,0 +1,74 @@
+.container {
+  width: min(1400px, 100% - 3rem);
+  margin-inline: auto;
+}
+
+.app-header {
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+  padding-block: var(--esp-4);
+  margin-bottom: var(--esp-5);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.header-texto p {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  margin-top: var(--esp-1);
+}
+
+main.container {
+  display: grid;
+  /* minmax(0, 1fr): una tabla ancha hace scroll dentro de su tarjeta en vez de ensanchar la página. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--esp-5);
+  padding-bottom: var(--esp-6);
+}
+
+.card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: var(--esp-5);
+}
+
+.card h2 {
+  margin-bottom: var(--esp-4);
+}
+
+.listado-encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--esp-3);
+}
+
+.resumen {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.tabla-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fatal {
+  width: min(1400px, 100% - 3rem);
+  margin: var(--esp-4) auto;
+  padding: var(--esp-4);
+  border-radius: var(--radio);
+  background: var(--rojo-fondo);
+  color: var(--rojo);
+  border: 1px solid currentcolor;
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sistema de facturación: búsqueda, alta y gestión de comprobantes de venta." />
+    <title>Facturación</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="container header-inner">
+        <div class="header-texto">
+          <h1>Facturación</h1>
+          <p>Gestión de comprobantes de venta</p>
+        </div>
+        <button type="button" id="btn-nueva" class="btn btn-primario btn-grande">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor">
+            <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z"/>
+          </svg>
+          Nueva factura
+        </button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- 1. Formulario de búsqueda con filtros -->
+      <section id="seccion-filtros" class="card" aria-labelledby="titulo-filtros">
+        <h2 id="titulo-filtros">Filtros de búsqueda</h2>
+        <form id="form-filtros" novalidate>
+          <div class="filtros-grid">
+            <div class="campo">
+              <label for="filtro-desde">Creación desde</label>
+              <input type="date" id="filtro-desde" name="fechaDesde" />
+            </div>
+            <div class="campo">
+              <label for="filtro-hasta">Creación hasta</label>
+              <input type="date" id="filtro-hasta" name="fechaHasta" aria-describedby="error-filtros" />
+            </div>
+            <div class="campo">
+              <label for="filtro-estado">Estado</label>
+              <select id="filtro-estado" name="estado">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label for="filtro-monto">Monto mínimo</label>
+              <input type="number" id="filtro-monto" name="montoMinimo" min="0" step="0.01" placeholder="0,00" />
+            </div>
+          </div>
+          <p class="error" id="error-filtros" hidden></p>
+          <div class="filtros-acciones">
+            <button type="submit" class="btn btn-primario">Buscar</button>
+            <button type="button" id="btn-limpiar" class="btn btn-secundario">Limpiar</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 3. Tabla con el listado de comprobantes -->
+      <section id="seccion-listado" aria-labelledby="titulo-listado">
+        <div class="listado-encabezado">
+          <h2 id="titulo-listado">Comprobantes</h2>
+          <p id="resumen" class="resumen" aria-live="polite"></p>
+        </div>
+        <div class="card tabla-card">
+          <div class="tabla-scroll">
+            <table id="tabla-facturas">
+              <thead>
+                <tr>
+                  <th scope="col">N° factura</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Creación</th>
+                  <th scope="col">Emisión</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Lista de precios</th>
+                  <th scope="col">Cond. IVA</th>
+                  <th scope="col">Punto de venta</th>
+                  <th scope="col" class="num">Ítems</th>
+                  <th scope="col" class="num">Total</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col"><span class="solo-lectores">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody id="facturas-body"></tbody>
+            </table>
+          </div>
+          <div id="estado-listado" class="estado-listado" hidden></div>
+          <div id="paginador-facturas"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toasts" aria-live="polite" aria-atomic="false"></div>
+    <div id="fatal" class="fatal" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+.estado-listado {
+  padding: var(--esp-6) var(--esp-4);
+  text-align: center;
+  color: var(--texto-suave);
+  display: grid;
+  gap: var(--esp-3);
+  justify-items: center;
+}
+
+.vacio-icono {
+  font-size: 2.5rem;
+}
+
+.skeleton {
+  display: block;
+  height: 0.9rem;
+  border-radius: var(--radio-chico);
+  background: linear-gradient(90deg, var(--superficie-2) 25%, var(--borde) 50%, var(--superficie-2) 75%);
+  background-size: 200% 100%;
+  animation: brillo 1.2s ease-in-out infinite;
+}
+
+@keyframes brillo {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .btn.cargando::before,
+  dialog,
+  .toast {
+    animation: none;
+  }
+
+  .btn,
+  tbody tr,
+  .btn-icono {
+    transition: none;
+  }
+}

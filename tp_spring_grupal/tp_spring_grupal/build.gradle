@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.utn'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.78'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // iText 7 para generación de PDF
+    implementation 'com.itextpdf:itext7-core:7.2.5'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'com.h2database:h2'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+// Diagnostico opt-in contra ARCA homologacion (solo lectura). No forma parte de `test`.
+tasks.register('arcaDiagnostico', JavaExec) {
+    group = 'verification'
+    description = 'Consulta puntos de venta, monedas y ultimos comprobantes en ARCA homologacion'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.utn.tp_spring_grupal.afip.ArcaDiagnostico'
+}
+
+// Emision de prueba contra ARCA HOMOLOGACION (un solo login: consulta condiciones IVA y emite una Factura C). No forma parte de `test`.
+tasks.register('arcaEmisionPrueba', JavaExec) {
+    group = 'verification'
+    description = 'Emite una Factura C de prueba en ARCA homologacion y verifica FEParamGetCondicionIvaReceptor'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.utn.tp_spring_grupal.afip.ArcaEmisionPrueba'
+}

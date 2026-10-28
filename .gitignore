@@ -1,0 +1,31 @@
+# Certificados y claves (AFIP/ARCA) - NUNCA subir
+*.pfx
+*.p12
+*.jks
+*.key
+*.pem
+*.csr
+*.crt
+.env
+.env.*
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Claude Code (config local)
+.claude/settings.local.json
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+.gradle/
+bin/
+out/
+
+# Logs y sistema
+*.log
+.DS_Store
+Thumbs.db
