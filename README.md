@@ -7,7 +7,11 @@ Sistema de facturación de ventas con emisión de comprobantes electrónicos con
 
 ## Integrantes
 
-- _Completar con nombre y legajo de cada integrante_
+- Maximiliano Kotlik
+- Francisco Marsala
+- Matías Barfi
+- Juan Ignacio Barrera
+- Octavio Guevara
 
 ## Estructura
 
