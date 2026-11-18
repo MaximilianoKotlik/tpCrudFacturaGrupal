@@ -196,14 +196,30 @@ export function abrirFacturaForm(
       const selectorCliente = crearElemento('div', 'selector');
       selectorCliente.append(iCliente, btnCliente);
       // Sin cliente solo se puede facturar a un Consumidor Final sin identificar (como en ARCA).
-      const chkCf = crearElemento('input');
-      chkCf.id = 'ff-cf';
-      chkCf.type = 'checkbox';
-      chkCf.checked = consumidorFinal;
-      const lblCf = crearElemento('label', 'check-en-linea');
-      lblCf.append(chkCf, document.createTextNode('Consumidor Final sin cliente'));
-      const contCliente = crearElemento('div', 'campo-cliente');
-      contCliente.append(selectorCliente, lblCf);
+      // Selector segmentado en la cabecera del campo: con cliente / Consumidor Final sin identificar.
+      const segmentado = crearElemento('div', 'segmentado');
+      segmentado.setAttribute('role', 'radiogroup');
+      segmentado.setAttribute('aria-label', 'Destinatario de la factura');
+      const opcion = (texto: string, esCf: boolean): HTMLButtonElement => {
+        const b = crearElemento('button', 'segmento', texto);
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.dataset['cf'] = String(esCf);
+        segmentado.appendChild(b);
+        return b;
+      };
+      const btnConCliente = opcion('Con cliente', false);
+      const btnSinCliente = opcion('Consumidor Final', true);
+      btnSinCliente.title = 'Factura sin cliente a un Consumidor Final sin identificar';
+      const lblCliente = crearElemento('label', undefined, 'Cliente');
+      lblCliente.setAttribute('for', 'ff-cliente');
+      const encabezadoCliente = crearElemento('div', 'campo-encabezado');
+      encabezadoCliente.append(lblCliente, segmentado);
+      const errCliente = crearElemento('small', 'error');
+      errCliente.dataset['errorFor'] = 'ff-cliente';
+      errCliente.hidden = true;
+      const campoCliente = crearElemento('div', 'campo campo-cliente');
+      campoCliente.append(encabezadoCliente, selectorCliente, errCliente);
 
       const sLista = crearSelect(
         'ff-lista',
@@ -243,7 +259,7 @@ export function abrirFacturaForm(
 
       const grid = crearElemento('div', 'form-grid');
       grid.append(
-        campo('ff-cliente', 'Cliente', contCliente),
+        campoCliente,
         campo('ff-lista', 'Lista de precios', sLista),
         campo('ff-condiva', 'Condición IVA del cliente', iCondIva),
         campo('ff-pv', 'Punto de venta', sPv),
@@ -369,16 +385,24 @@ export function abrirFacturaForm(
       });
 
       function sincronizarConsumidorFinal(): void {
-        iCliente.disabled = consumidorFinal;
-        btnCliente.disabled = consumidorFinal;
-        iCliente.placeholder = consumidorFinal ? 'Sin cliente' : 'Ningún cliente seleccionado';
-        iCliente.value = consumidorFinal ? '' : (cliente?.texto ?? '');
+        btnConCliente.setAttribute('aria-checked', String(!consumidorFinal));
+        btnSinCliente.setAttribute('aria-checked', String(consumidorFinal));
+        selectorCliente.classList.toggle('es-cf', consumidorFinal);
+        btnCliente.hidden = consumidorFinal;
+        iCliente.value = consumidorFinal ? 'Consumidor Final sin identificar' : (cliente?.texto ?? '');
         iCondIva.value = consumidorFinal ? CONDICION_CF : (cliente?.condicionIva ?? '');
       }
-      chkCf.addEventListener('change', () => {
-        consumidorFinal = chkCf.checked;
+      segmentado.addEventListener('click', (ev) => {
+        const b = (ev.target as HTMLElement).closest('button.segmento');
+        if (!(b instanceof HTMLButtonElement)) return;
+        const nuevo = b.dataset['cf'] === 'true';
+        if (nuevo === consumidorFinal) return;
+        consumidorFinal = nuevo;
+        marcarSucio();
         fijarErrorCampo(iCliente, '');
         sincronizarConsumidorFinal();
+        // Al volver a "Con cliente" sin uno elegido, abrir directamente el buscador.
+        if (!consumidorFinal && !cliente) btnCliente.click();
       });
       sincronizarConsumidorFinal();
 

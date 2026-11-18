@@ -70,15 +70,6 @@ small.error {
   grid-column: span 2;
 }
 
-/* Casilla con su texto en línea (p. ej. "Consumidor Final sin cliente"). */
-.check-en-linea {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--esp-2);
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding-inline: var(--esp-2);
-}
 
 fieldset {
   border: 1px solid var(--borde);
@@ -207,7 +198,58 @@ fieldset > .btn {
   justify-self: start;
 }
 
-.campo-cliente {
-  display: grid;
+/* Campo cliente: etiqueta + selector segmentado en la misma línea. */
+.campo-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--esp-2);
+  min-height: 1.6rem;
+}
+
+.segmentado {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+}
+
+.segmento {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.3rem 0.65rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transicion), color var(--transicion), box-shadow var(--transicion);
+}
+
+.segmento:hover {
+  color: var(--texto);
+}
+
+.segmento[aria-checked="true"] {
+  background: var(--superficie);
+  color: var(--acento);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.12);
+}
+
+.segmento:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+
+/* Sin cliente: el campo se muestra como un dato fijo, no como algo a completar. */
+.selector.es-cf input {
+  background: var(--acento-suave);
+  border-color: transparent;
+  color: var(--acento);
+  font-weight: 600;
 }
