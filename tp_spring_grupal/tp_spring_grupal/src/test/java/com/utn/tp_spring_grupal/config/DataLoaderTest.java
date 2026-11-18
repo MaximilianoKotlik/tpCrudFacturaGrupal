@@ -147,11 +147,27 @@ class DataLoaderTest {
 
         long pendientes = facturas.stream().filter(f -> f.getEstado() == EstadoFactura.PENDIENTE).count();
         long conError = facturas.stream().filter(f -> f.getEstado() == EstadoFactura.ERROR_AFIP).count();
-        long anuladas = facturas.stream().filter(f -> f.getEstado() == EstadoFactura.ANULADA).count();
+        long eliminadas = facturas.stream().filter(f -> f.getFechaBaja() != null).count();
         assertTrue(pendientes >= 20, "pendientes: " + pendientes);
         assertTrue(conError >= 4, "con error: " + conError);
-        assertTrue(anuladas >= 3, "anuladas: " + anuladas);
-        assertEquals(facturas.size(), pendientes + conError + anuladas);
+        assertTrue(eliminadas >= 3, "eliminadas: " + eliminadas);
+        assertEquals(facturas.size(), pendientes + conError);
+    }
+
+    @Test
+    void noHayAnuladasPorqueSoloSeAnulaUnaFacturaEmitida() {
+        assertTrue(facturas().stream().noneMatch(f -> f.getEstado() == EstadoFactura.ANULADA));
+    }
+
+    @Test
+    void lasEliminadasSonNoEmitidasConUsuarioDeBaja() {
+        List<FacturaVenta> eliminadas = facturas().stream().filter(f -> f.getFechaBaja() != null).toList();
+        assertFalse(eliminadas.isEmpty());
+        for (FacturaVenta f : eliminadas) {
+            assertTrue(f.getEstado().esEditable(), "solo se eliminan PENDIENTE / ERROR_AFIP");
+            assertNotNull(f.getUsuarioBaja());
+            assertNull(f.getFechaAnulacion());
+        }
     }
 
     @Test

@@ -211,7 +211,8 @@ public class DataLoader implements CommandLineRunner {
             }
         }
 
-        // ---- facturas: 25 PENDIENTE, 5 ERROR_AFIP, 4 ANULADA; ninguna EMITIDA, sin número, CAE ni fecha de emisión
+        // ---- facturas: 25 PENDIENTE, 5 ERROR_AFIP y 4 PENDIENTE eliminadas (fechaBaja, no se listan); ninguna
+        // EMITIDA ni ANULADA (solo se anula una emitida), sin número, CAE ni fecha de emisión
         String[] motivos = {
                 "[10015] Si el campo DocTipo = 80, el DocNro debe ser un CUIT válido.",
                 "Timeout al conectar con el WebService de AFIP.",
@@ -229,7 +230,8 @@ public class DataLoader implements CommandLineRunner {
         Random azar = new Random(42);
         int totalFacturas = 34;
         for (int k = 0; k < totalFacturas; k++) {
-            EstadoFactura estado = k < 25 ? EstadoFactura.PENDIENTE : (k < 30 ? EstadoFactura.ERROR_AFIP : EstadoFactura.ANULADA);
+            EstadoFactura estado = k >= 25 && k < 30 ? EstadoFactura.ERROR_AFIP : EstadoFactura.PENDIENTE;
+            boolean eliminada = k >= 30;
             String motivo = estado == EstadoFactura.ERROR_AFIP ? motivos[k - 25] : null;
             int l = k % 3;
             Map<Integer, ListaPrecioArticulo> preciosLista = precios.get(l);
@@ -248,7 +250,7 @@ public class DataLoader implements CommandLineRunner {
             // fechaAlta (fecha de creación) repartida en 3 semanas
             Date fechaAlta = new Date(ahora.getTime() - (k % 21) * DIA_MS - (k * 37L % 600) * 60_000L);
 
-            factura(estado, fechaAlta, motivo, clientes.get((k * 5 + k / 3) % clientes.size()), listas.get(l),
+            factura(estado, eliminada, fechaAlta, motivo, clientes.get((k * 5 + k / 3) % clientes.size()), listas.get(l),
                     preciosLista, puntoVentaWs, k % 8 == 7 ? dolar : pesos,
                     observaciones[k % observaciones.length], filas);
         }
@@ -266,7 +268,7 @@ public class DataLoader implements CommandLineRunner {
      * Crea una factura con importes calculados igual que el service (CalculadoraIva, alícuota del artículo
      * como snapshot, 0 % si el emisor no discrimina IVA). La condición IVA es la del cliente.
      */
-    private void factura(EstadoFactura estado, Date fechaAlta, String motivoRechazo, Cliente cliente, ListaPrecio lista,
+    private void factura(EstadoFactura estado, boolean eliminada, Date fechaAlta, String motivoRechazo, Cliente cliente, ListaPrecio lista,
                          Map<Integer, ListaPrecioArticulo> precios, PuntoVenta pv, TipoMoneda moneda,
                          String observaciones, List<Fila> filas) {
         FacturaVenta f = FacturaVenta.builder()
@@ -282,7 +284,8 @@ public class DataLoader implements CommandLineRunner {
                 .resultadoAfip(motivoRechazo != null ? "R" : null)
                 .motivoRechazo(motivoRechazo)
                 .estado(estado)
-                .fechaAnulacion(estado == EstadoFactura.ANULADA ? ahora : null)
+                .fechaBaja(eliminada ? ahora : null)
+                .usuarioBaja(eliminada ? admin : null)
                 .observaciones(observaciones)
                 .fechaAlta(fechaAlta)
                 .fechaModificacion(ahora)
