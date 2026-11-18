@@ -18,6 +18,7 @@ import com.utn.tp_spring_grupal.common.PageResponse;
 import com.utn.tp_spring_grupal.common.ReglaNegocioException;
 import com.utn.tp_spring_grupal.common.ValidacionException;
 import com.utn.tp_spring_grupal.condicioniva.CondicionIva;
+import com.utn.tp_spring_grupal.condicioniva.CondicionIvaRepository;
 import com.utn.tp_spring_grupal.emisor.CondicionIvaEmisor;
 import com.utn.tp_spring_grupal.emisor.EmisorProperties;
 import com.utn.tp_spring_grupal.factura.CalculadoraIva.ResumenAlicuota;
@@ -76,6 +77,7 @@ class FacturaServiceTest {
     @Mock PuntoVentaRepository pvRepo;
     @Mock TipoMonedaRepository monedaRepo;
     @Mock UsuarioRepository usuarioRepo;
+    @Mock CondicionIvaRepository condicionIvaRepo;
     @Mock AfipWsfeService afip;
     @Mock PlatformTransactionManager tm;
 
@@ -97,7 +99,8 @@ class FacturaServiceTest {
     @BeforeEach
     void setUp() {
         emisor = new EmisorProperties();
-        service = new FacturaService(facturaRepo, clienteRepo, listaRepo, lpaRepo, pvRepo, monedaRepo, usuarioRepo, afip, emisor, tm);
+        service = new FacturaService(facturaRepo, clienteRepo, listaRepo, lpaRepo, pvRepo, monedaRepo, usuarioRepo,
+                condicionIvaRepo, afip, emisor, tm);
 
         usuario = Usuario.builder().id(1L).usuario("u").clave("c").nombre("n").apellido("a").build();
         ivaRi = CondicionIva.builder().id(20L).codigoAfip(1).denominacion("Resp. Inscripto").build();
@@ -120,6 +123,7 @@ class FacturaServiceTest {
         when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
         when(clienteRepo.findById(10L)).thenReturn(Optional.of(cliente));
         when(clienteRepo.findById(11L)).thenReturn(Optional.of(clienteConsumidorFinal));
+        when(condicionIvaRepo.findFirstByCodigoAfip(5)).thenReturn(Optional.of(ivaConsumidorFinal));
         when(listaRepo.findById(100L)).thenReturn(Optional.of(listaA));
         when(listaRepo.findById(200L)).thenReturn(Optional.of(listaB));
         when(pvRepo.findById(30L)).thenReturn(Optional.of(pv));
@@ -314,6 +318,58 @@ class FacturaServiceTest {
                 () -> service.crearFactura(new FacturaGuardarDTO(null, null, 100L, 30L, 40L, List.of(renglon(1, "0")))));
     }
 
+    // ---------- consumidor final sin cliente ----------
+
+    private FacturaGuardarDTO consumidorFinal(Long clienteId) {
+        return new FacturaGuardarDTO("obs", clienteId, 100L, 30L, 40L, List.of(renglon(1, "0")), true);
+    }
+
+    @Test
+    void crearAConsumidorFinalSinClienteUsaLaCondicionConsumidorFinal() {
+        FacturaDTO r = service.crearFactura(consumidorFinal(null));
+
+        FacturaVenta f = guardada();
+        assertNull(f.getCliente());
+        assertEquals(ivaConsumidorFinal, f.getCondicionIva());
+        assertNull(r.clienteId());
+        assertEquals("Consumidor Final", r.clienteDenominacion());
+        assertEquals("B", r.tipoComprobante());
+    }
+
+    @Test
+    void crearAConsumidorFinalConClienteEsInvalido() {
+        assertThrows(ValidacionException.class, () -> service.crearFactura(consumidorFinal(10L)));
+        verify(facturaRepo, never()).save(any());
+    }
+
+    @Test
+    void crearAConsumidorFinalSinLaCondicionCargadaEsInvalido() {
+        when(condicionIvaRepo.findFirstByCodigoAfip(5)).thenReturn(Optional.empty());
+        assertThrows(ValidacionException.class, () -> service.crearFactura(consumidorFinal(null)));
+    }
+
+    @Test
+    void actualizarAConsumidorFinalQuitaElClienteYCambiaLaCondicion() {
+        FacturaVenta f = facturaExistente(EstadoFactura.PENDIENTE);
+
+        service.actualizarFactura(7L, new FacturaGuardarDTO(null, null, null, null, null, null, true));
+
+        assertNull(f.getCliente());
+        assertEquals(ivaConsumidorFinal, f.getCondicionIva());
+    }
+
+    @Test
+    void actualizarDeConsumidorFinalAUnClienteLoAsignaConSuCondicion() {
+        FacturaVenta f = facturaExistente(EstadoFactura.PENDIENTE);
+        f.setCliente(null);
+        f.setCondicionIva(ivaConsumidorFinal);
+
+        service.actualizarFactura(7L, new FacturaGuardarDTO(null, 10L, null, null, null, null, false));
+
+        assertEquals(cliente, f.getCliente());
+        assertEquals(ivaRi, f.getCondicionIva());
+    }
+
     @Test
     void crearConCantidadCeroNegativaONulaEsInvalido() {
         assertThrows(ValidacionException.class, () -> service.crearFactura(guardar(100L, List.of(renglon(0, "0")))));
@@ -407,38 +463,93 @@ class FacturaServiceTest {
         assertEquals("No se encontró la factura. Es posible que ya no exista.", ex.getMessage());
     }
 
-    // ---------- anular ----------
+    // ---------- eliminar (baja lógica) ----------
 
     @Test
-    void anularPendienteMarcaAnuladaConFecha() {
+    void eliminarPendienteLaDaDeBajaSinCambiarElEstado() {
         FacturaVenta f = facturaExistente(EstadoFactura.PENDIENTE);
-        service.anularFactura(7L);
+
+        service.eliminarFactura(7L);
+
+        assertNotNull(f.getFechaBaja());
+        assertEquals(usuario, f.getUsuarioBaja());
+        assertEquals(EstadoFactura.PENDIENTE, f.getEstado());
+        verify(facturaRepo).save(f);
+    }
+
+    @Test
+    void eliminarErrorAfipEstaPermitido() {
+        FacturaVenta f = facturaExistente(EstadoFactura.ERROR_AFIP);
+        service.eliminarFactura(7L);
+        assertNotNull(f.getFechaBaja());
+    }
+
+    @Test
+    void eliminarErrorAfipConNumeroReservadoDa409ParaNoPerderUnCaeQuizasAutorizado() {
+        FacturaVenta f = facturaExistente(EstadoFactura.ERROR_AFIP);
+        f.setNumero(11L);
+
+        ReglaNegocioException ex = assertThrows(ReglaNegocioException.class, () -> service.eliminarFactura(7L));
+
+        assertTrue(ex.getMessage().contains("emitir"));
+        assertNull(f.getFechaBaja());
+        verify(facturaRepo, never()).save(any());
+    }
+
+    @Test
+    void eliminarEmitidaOAnuladaDa409() {
+        FacturaVenta emitida = facturaExistente(EstadoFactura.EMITIDA);
+        assertThrows(ReglaNegocioException.class, () -> service.eliminarFactura(7L));
+        assertNull(emitida.getFechaBaja());
+
+        facturaExistente(EstadoFactura.ANULADA);
+        assertThrows(ReglaNegocioException.class, () -> service.eliminarFactura(7L));
+        verify(facturaRepo, never()).save(any());
+    }
+
+    @Test
+    void unaFacturaDadaDeBajaYaNoSeEncuentra() {
+        FacturaVenta f = facturaExistente(EstadoFactura.PENDIENTE);
+        f.setFechaBaja(new Date());
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> service.obtenerFactura(7L));
+        assertEquals("No se encontró la factura. Es posible que ya no exista.", ex.getMessage());
+        assertThrows(RuntimeException.class, () -> service.eliminarFactura(7L));
+    }
+
+    // ---------- anular (emitidas) ----------
+
+    @Test
+    void anularEmitidaLaDejaAnuladaConFechaYConservaElCae() {
+        FacturaVenta f = facturaExistente(EstadoFactura.EMITIDA);
+        f.setCae("CAE-1");
+        f.setNumero(11L);
+
+        FacturaDTO r = service.anularFactura(7L);
+
         assertEquals(EstadoFactura.ANULADA, f.getEstado());
         assertNotNull(f.getFechaAnulacion());
+        assertNull(f.getFechaBaja());
+        assertEquals("CAE-1", f.getCae());
+        assertEquals(EstadoFactura.ANULADA, r.estado());
+        verifyNoInteractions(afip);
     }
 
     @Test
-    void anularErrorAfipEstaPermitido() {
-        FacturaVenta f = facturaExistente(EstadoFactura.ERROR_AFIP);
-        service.anularFactura(7L);
-        assertEquals(EstadoFactura.ANULADA, f.getEstado());
-    }
-
-    @Test
-    void anularUnaFacturaEmitidaDa409YNoLaToca() {
-        FacturaVenta f = facturaExistente(EstadoFactura.EMITIDA);
-
+    void anularPendienteOErrorAfipDa409() {
+        FacturaVenta f = facturaExistente(EstadoFactura.PENDIENTE);
         ReglaNegocioException ex = assertThrows(ReglaNegocioException.class, () -> service.anularFactura(7L));
+        assertTrue(ex.getMessage().contains("emitidas"));
+        assertEquals(EstadoFactura.PENDIENTE, f.getEstado());
 
-        assertTrue(ex.getMessage().contains("EMITIDA"));
-        assertEquals(EstadoFactura.EMITIDA, f.getEstado());
-        assertNull(f.getFechaAnulacion());
+        facturaExistente(EstadoFactura.ERROR_AFIP);
+        assertThrows(ReglaNegocioException.class, () -> service.anularFactura(7L));
         verify(facturaRepo, never()).save(any());
     }
 
     @Test
     void anularDosVecesDa409() {
-        facturaExistente(EstadoFactura.PENDIENTE);
+        facturaExistente(EstadoFactura.EMITIDA);
         service.anularFactura(7L);
         assertThrows(ReglaNegocioException.class, () -> service.anularFactura(7L));
     }

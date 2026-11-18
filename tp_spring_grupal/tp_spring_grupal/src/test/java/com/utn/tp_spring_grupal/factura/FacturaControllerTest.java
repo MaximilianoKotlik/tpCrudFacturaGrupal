@@ -132,25 +132,48 @@ class FacturaControllerTest {
     }
 
     @Test
-    void deleteDevuelve204() throws Exception {
+    void deleteEliminaLaFacturaYDevuelve204() throws Exception {
         mvc.perform(delete("/api/facturas/5")).andExpect(status().isNoContent());
+        verify(service).eliminarFactura(5L);
     }
 
     @Test
     void deleteDeUnaFacturaEmitidaDevuelve409ConMensaje() throws Exception {
-        doThrow(new ReglaNegocioException("Una factura EMITIDA no se puede anular: corresponde emitir una Nota de Crédito."))
-                .when(service).anularFactura(5L);
+        doThrow(new ReglaNegocioException("Una factura emitida no se elimina: se anula."))
+                .when(service).eliminarFactura(5L);
 
         mvc.perform(delete("/api/facturas/5"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.mensaje").value("Una factura EMITIDA no se puede anular: corresponde emitir una Nota de Crédito."));
+                .andExpect(jsonPath("$.mensaje").value("Una factura emitida no se elimina: se anula."));
     }
 
     @Test
-    void deleteDosVecesDevuelve409LaSegunda() throws Exception {
-        doThrow(new ReglaNegocioException("La factura ya está anulada.")).when(service).anularFactura(5L);
+    void anularDevuelveLaFacturaAnulada() throws Exception {
+        when(service.anularFactura(5L)).thenReturn(factura(EstadoFactura.ANULADA));
 
-        mvc.perform(delete("/api/facturas/5")).andExpect(status().isConflict());
+        mvc.perform(post("/api/facturas/5/anular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("ANULADA"));
+    }
+
+    @Test
+    void anularUnaNoEmitidaDevuelve409() throws Exception {
+        when(service.anularFactura(5L)).thenThrow(new ReglaNegocioException("Solo se anulan facturas emitidas."));
+        mvc.perform(post("/api/facturas/5/anular")).andExpect(status().isConflict());
+    }
+
+    @Test
+    void postAConsumidorFinalSinClienteSeDeserializa() throws Exception {
+        when(service.crearFactura(any())).thenReturn(factura(EstadoFactura.PENDIENTE));
+
+        mvc.perform(post("/api/facturas").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consumidorFinal\":true,\"listaPrecioId\":1,\"detalles\":[{\"articuloId\":1,\"cantidad\":1}]}"))
+                .andExpect(status().isCreated());
+
+        org.mockito.ArgumentCaptor<FacturaGuardarDTO> cap = org.mockito.ArgumentCaptor.forClass(FacturaGuardarDTO.class);
+        verify(service).crearFactura(cap.capture());
+        org.junit.jupiter.api.Assertions.assertTrue(cap.getValue().esConsumidorFinal());
+        org.junit.jupiter.api.Assertions.assertNull(cap.getValue().clienteId());
     }
 
     @Test

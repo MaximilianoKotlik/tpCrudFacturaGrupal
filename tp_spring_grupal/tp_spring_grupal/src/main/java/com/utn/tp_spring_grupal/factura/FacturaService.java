@@ -27,6 +27,7 @@ import com.utn.tp_spring_grupal.common.PageResponse;
 import com.utn.tp_spring_grupal.common.ReglaNegocioException;
 import com.utn.tp_spring_grupal.common.ValidacionException;
 import com.utn.tp_spring_grupal.condicioniva.CondicionIva;
+import com.utn.tp_spring_grupal.condicioniva.CondicionIvaRepository;
 import com.utn.tp_spring_grupal.emisor.EmisorProperties;
 import com.utn.tp_spring_grupal.factura.CalculadoraIva.Alicuota;
 import com.utn.tp_spring_grupal.factura.CalculadoraIva.ImportesRenglon;
@@ -87,6 +88,7 @@ public class FacturaService {
     private final PuntoVentaRepository puntoVentaRepository;
     private final TipoMonedaRepository tipoMonedaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final CondicionIvaRepository condicionIvaRepository;
     private final AfipWsfeService afipWsfeService;
     private final EmisorProperties emisor;
     private final TransactionTemplate tx;
@@ -98,6 +100,7 @@ public class FacturaService {
                           PuntoVentaRepository puntoVentaRepository,
                           TipoMonedaRepository tipoMonedaRepository,
                           UsuarioRepository usuarioRepository,
+                          CondicionIvaRepository condicionIvaRepository,
                           AfipWsfeService afipWsfeService,
                           EmisorProperties emisor,
                           PlatformTransactionManager transactionManager) {
@@ -108,6 +111,7 @@ public class FacturaService {
         this.puntoVentaRepository = puntoVentaRepository;
         this.tipoMonedaRepository = tipoMonedaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.condicionIvaRepository = condicionIvaRepository;
         this.afipWsfeService = afipWsfeService;
         this.emisor = emisor;
         this.tx = new TransactionTemplate(transactionManager);
@@ -117,19 +121,25 @@ public class FacturaService {
 
     /**
      * Crea la factura en estado PENDIENTE (sin número, CAE ni fecha de emisión). La condición IVA se copia
-     * del cliente (snapshot). La emisión en AFIP es una acción aparte.
+     * del cliente (snapshot), o es Consumidor Final si se factura sin cliente. La emisión en AFIP es aparte.
      */
     public FacturaDTO crearFactura(FacturaGuardarDTO dto) {
-        requerido(dto.clienteId(), "El cliente es obligatorio");
+        if (dto.esConsumidorFinal()) {
+            if (dto.clienteId() != null) {
+                throw new ValidacionException("Una factura a Consumidor Final sin identificar no lleva cliente.");
+            }
+        } else {
+            requerido(dto.clienteId(), "El cliente es obligatorio");
+        }
         requerido(dto.listaPrecioId(), "La lista de precios es obligatoria");
         requerido(dto.puntoVentaId(), "El punto de venta es obligatorio");
         requerido(dto.tipoMonedaId(), "El tipo de moneda es obligatorio");
         validarRenglones(dto.detalles());
 
-        Usuario usuarioActual = usuarioRepository.findById(1L)
-                .orElseThrow(() -> new NullPointerException("No se encontró el usuario del sistema"));
+        Usuario usuarioActual = usuarioActual();
         TipoMoneda tipoMoneda = buscarMoneda(dto.tipoMonedaId());
-        Cliente cliente = buscarCliente(dto.clienteId());
+        Cliente cliente = dto.esConsumidorFinal() ? null : buscarCliente(dto.clienteId());
+        CondicionIva condicionIva = cliente != null ? cliente.getCondicionIva() : buscarConsumidorFinal();
         ListaPrecio listaPrecio = buscarLista(dto.listaPrecioId());
         PuntoVenta puntoVenta = buscarPuntoVenta(dto.puntoVentaId());
 
@@ -143,7 +153,7 @@ public class FacturaService {
                 // Relaciones
                 .cliente(cliente)
                 .listaPrecio(listaPrecio)
-                .condicionIva(cliente.getCondicionIva())
+                .condicionIva(condicionIva)
                 .puntoVenta(puntoVenta)
                 .tipoMoneda(tipoMoneda)
 
@@ -184,7 +194,10 @@ public class FacturaService {
         if (dto.tipoMonedaId() != null) {
             factura.setTipoMoneda(buscarMoneda(dto.tipoMonedaId()));
         }
-        if (dto.clienteId() != null) {
+        if (dto.esConsumidorFinal()) {
+            factura.setCliente(null);
+            factura.setCondicionIva(buscarConsumidorFinal());
+        } else if (dto.clienteId() != null) {
             Cliente cliente = buscarCliente(dto.clienteId());
             factura.setCliente(cliente);
             factura.setCondicionIva(cliente.getCondicionIva());
@@ -397,28 +410,58 @@ public class FacturaService {
         });
     }
 
+    // --------------------------------------------------------------- eliminar
+
+    /**
+     * Baja lógica de una factura que nunca se emitió (PENDIENTE o ERROR_AFIP): se completa fechaBaja/usuarioBaja,
+     * el estado no cambia y deja de listarse. Si ARCA pudo haber autorizado el número reservado (comunicación
+     * cortada) no se elimina: hay que volver a emitirla para recuperar el CAE o liberar el número.
+     */
+    public void eliminarFactura(Long id) {
+        FacturaVenta factura = buscarOFallar(id);
+
+        if (factura.getEstado() == EstadoFactura.EMITIDA) {
+            throw new ReglaNegocioException("Una factura emitida no se elimina: se anula.");
+        }
+        if (!factura.getEstado().esEditable()) {
+            throw new ReglaNegocioException("La factura está " + factura.getEstado().etiqueta()
+                    + " y no se puede eliminar.");
+        }
+        if (factura.getNumero() != null) {
+            throw new ReglaNegocioException("La factura tiene el número " + factura.getNumero()
+                    + " reservado en ARCA y puede que haya sido autorizada. Volvé a emitirla antes de eliminarla.");
+        }
+
+        Date ahora = new Date();
+        factura.setFechaBaja(ahora);
+        factura.setUsuarioBaja(usuarioActual());
+        factura.setFechaModificacion(ahora);
+        facturaVentaRepository.save(factura);
+    }
+
     // ----------------------------------------------------------------- anular
 
     /**
-     * Eliminación lógica (anulación) de una factura PENDIENTE o ERROR_AFIP. Una EMITIDA ya tiene CAE y no se
-     * anula (corresponde una Nota de Crédito, fuera de alcance): 409.
+     * Anulación de una factura EMITIDA: pasa a ANULADA con fecha de anulación y conserva número y CAE. Simula la
+     * Nota de Crédito (no se informa a ARCA). Las no emitidas no se anulan: se eliminan.
      */
-    public void anularFactura(Long id) {
+    public FacturaDTO anularFactura(Long id) {
         FacturaVenta factura = buscarOFallar(id);
 
         if (factura.getEstado() == EstadoFactura.ANULADA) {
             throw new ReglaNegocioException("La factura ya está anulada.");
         }
-        if (factura.getEstado() == EstadoFactura.EMITIDA) {
+        if (factura.getEstado() != EstadoFactura.EMITIDA) {
             throw new ReglaNegocioException(
-                    "Una factura EMITIDA no se puede anular: corresponde emitir una Nota de Crédito.");
+                    "Solo se anulan facturas emitidas; una factura " + factura.getEstado().etiqueta() + " se elimina.");
         }
 
+        Date ahora = new Date();
         factura.setEstado(EstadoFactura.ANULADA);
-        factura.setFechaAnulacion(new Date());
-        factura.setFechaModificacion(new Date());
-
+        factura.setFechaAnulacion(ahora);
+        factura.setFechaModificacion(ahora);
         facturaVentaRepository.save(factura);
+        return aDTO(factura, factura.getDetalles().size(), true);
     }
 
     // ---------------------------------------------------------------- lecturas
@@ -459,7 +502,14 @@ public class FacturaService {
 
     private FacturaVenta buscarOFallar(Long id) {
         return facturaVentaRepository.findById(id)
+                .filter(f -> f.getFechaBaja() == null)
                 .orElseThrow(() -> new RuntimeException("No se encontró la factura. Es posible que ya no exista."));
+    }
+
+    /** No hay login: todas las operaciones se registran con el usuario del sistema (id 1). */
+    private Usuario usuarioActual() {
+        return usuarioRepository.findById(1L)
+                .orElseThrow(() -> new NullPointerException("No se encontró el usuario del sistema"));
     }
 
     private TipoMoneda buscarMoneda(Long id) {
@@ -470,6 +520,12 @@ public class FacturaService {
     private Cliente buscarCliente(Long id) {
         return clienteRepository.findById(id)
                 .orElseThrow(() -> new NullPointerException("No se encontró el cliente seleccionado."));
+    }
+
+    private CondicionIva buscarConsumidorFinal() {
+        return condicionIvaRepository.findFirstByCodigoAfip(CondicionIva.CODIGO_CONSUMIDOR_FINAL)
+                .orElseThrow(() -> new ValidacionException(
+                        "No está cargada la condición IVA Consumidor Final; no se puede facturar sin cliente."));
     }
 
     private ListaPrecio buscarLista(Long id) {

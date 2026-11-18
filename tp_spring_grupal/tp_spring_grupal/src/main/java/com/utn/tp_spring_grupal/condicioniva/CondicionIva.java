@@ -23,6 +23,9 @@ import jakarta.persistence.*;
 @ToString 
 @AllArgsConstructor 
 public class CondicionIva extends AuditoriaApp {
+    /** Código AFIP de Consumidor Final: la única condición posible para una factura sin cliente. */
+    public static final int CODIGO_CONSUMIDOR_FINAL = 5;
+
     @Column(nullable = false)
     private int codigoAfip;
 

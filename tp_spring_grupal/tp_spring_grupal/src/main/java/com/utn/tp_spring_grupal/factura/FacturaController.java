@@ -40,11 +40,17 @@ public class FacturaController {
         return ResponseEntity.ok(facturaService.emitirFactura(id));
     }
 
-    // DELETE: baja LÓGICA (anulación) de una factura PENDIENTE / ERROR_AFIP. EMITIDA o ANULADA → 409.
+    // DELETE: baja LÓGICA (fechaBaja) de una factura PENDIENTE / ERROR_AFIP; deja de listarse. Otro estado → 409.
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> anularFactura(@PathVariable Long id) {
-        facturaService.anularFactura(id);
+    public ResponseEntity<Void> eliminarFactura(@PathVariable Long id) {
+        facturaService.eliminarFactura(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // POST /{id}/anular: una EMITIDA pasa a ANULADA (simula la Nota de Crédito, sin ARCA). Otro estado → 409.
+    @PostMapping("/{id}/anular")
+    public ResponseEntity<FacturaDTO> anularFactura(@PathVariable Long id) {
+        return ResponseEntity.ok(facturaService.anularFactura(id));
     }
 
     // GET /{id}: detalle completo (cabecera + renglones) para precargar la edición.
