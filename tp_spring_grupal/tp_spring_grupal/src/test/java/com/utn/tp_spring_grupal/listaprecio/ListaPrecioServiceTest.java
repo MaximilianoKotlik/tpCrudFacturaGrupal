@@ -74,6 +74,24 @@ class ListaPrecioServiceTest {
     }
 
     @Test
+    void cadaArticuloTraeSuPrecioEnTodasLasListas() {
+        List<ListaPrecioArticuloDTO> r = service.buscarArticulos(mayorista.getId(), null, null, null, "codigo", "asc", 0, 10).contenido();
+
+        ListaPrecioArticuloDTO mouse = r.get(0);
+        assertEquals(2, mouse.precios().size());
+        assertEquals(0, new BigDecimal("100").compareTo(precioEn(mouse, mayorista.getId())));
+        assertEquals(0, new BigDecimal("150").compareTo(precioEn(mouse, minorista.getId())));
+
+        ListaPrecioArticuloDTO monitor = r.get(1);
+        assertEquals(1, monitor.precios().size());
+        assertEquals(mayorista.getId(), monitor.precios().get(0).listaPrecioId());
+    }
+
+    private static BigDecimal precioEn(ListaPrecioArticuloDTO a, Long listaId) {
+        return a.precios().stream().filter(p -> p.listaPrecioId().equals(listaId)).findFirst().orElseThrow().precioVenta();
+    }
+
+    @Test
     void filtraPorRubroYMarca() {
         assertEquals(List.of("A-001", "A-002"), codigos(service.buscarArticulos(mayorista.getId(), null, elec.getId(), null, null, null, 0, 10)));
         assertEquals(List.of("A-001"), codigos(service.buscarArticulos(mayorista.getId(), null, null, logi.getId(), null, null, 0, 10)));

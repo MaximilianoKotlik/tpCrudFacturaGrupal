@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -16,6 +18,10 @@ public interface ListaPrecioArticuloRepository
 
     /** Precio de un artículo en una lista concreta. */
     Optional<ListaPrecioArticulo> findByListaPrecioIdAndArticuloId(Long listaPrecioId, Long articuloId);
+
+    /** Precios de varios artículos en todas las listas donde figuran. */
+    @EntityGraph(attributePaths = { "articulo", "listaPrecio" })
+    List<ListaPrecioArticulo> findByArticuloIdIn(Collection<Long> articuloIds);
 
     /** Búsqueda del explorer: trae artículo, rubro y marca en una sola consulta (sin N+1). */
     @Override

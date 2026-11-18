@@ -160,7 +160,7 @@ class FacturaControllerTest {
 
     @Test
     void listadoDevuelveElContratoDePaginacion() throws Exception {
-        when(service.buscarFacturas(any(), any(), any(), any(), eq(0), eq(10)))
+        when(service.buscarFacturas(any(), eq(0), eq(10)))
                 .thenReturn(new PageResponse<>(List.of(factura(EstadoFactura.PENDIENTE)), 0, 10, 23, 3));
 
         mvc.perform(get("/api/facturas"))
@@ -176,7 +176,7 @@ class FacturaControllerTest {
 
     @Test
     void listadoPasaFiltrosYParametrosDePaginacionAlService() throws Exception {
-        when(service.buscarFacturas(any(), any(), any(), any(), eq(2), eq(5)))
+        when(service.buscarFacturas(any(), eq(2), eq(5)))
                 .thenReturn(new PageResponse<>(List.of(), 2, 5, 0, 0));
 
         mvc.perform(get("/api/facturas")
@@ -189,18 +189,38 @@ class FacturaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pagina").value(2));
 
-        verify(service).buscarFacturas(eq(LocalDate.of(2026, 3, 1)), eq(LocalDate.of(2026, 3, 31)),
-                eq(EstadoFactura.ERROR_AFIP), eq(new BigDecimal("150.50")), eq(2), eq(5));
+        verify(service).buscarFacturas(eq(new FacturaFiltro(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                EstadoFactura.ERROR_AFIP, new BigDecimal("150.50"), null, null, null)), eq(2), eq(5));
+    }
+
+    @Test
+    void listadoPasaLosFiltrosDeClienteTipoYCae() throws Exception {
+        when(service.buscarFacturas(any(), eq(0), eq(10))).thenReturn(new PageResponse<>(List.of(), 0, 10, 0, 0));
+
+        mvc.perform(get("/api/facturas")
+                        .param("clienteId", "12")
+                        .param("tipoComprobante", "B")
+                        .param("cae", "7512"))
+                .andExpect(status().isOk());
+
+        verify(service).buscarFacturas(eq(new FacturaFiltro(null, null, null, null, 12L, TipoComprobante.B, "7512")),
+                eq(0), eq(10));
+    }
+
+    @Test
+    void tipoDeComprobanteInvalidoDevuelve400() throws Exception {
+        mvc.perform(get("/api/facturas").param("tipoComprobante", "Z")).andExpect(status().isBadRequest());
     }
 
     @Test
     void reportesAceptanLosMismosFiltrosSinPaginar() throws Exception {
-        when(service.buscarFacturasSinPaginar(any(), any(), eq(EstadoFactura.PENDIENTE), any())).thenReturn(List.of());
+        when(service.buscarFacturasSinPaginar(any())).thenReturn(List.of());
         when(service.generarReporteExcelTxt(any())).thenReturn("x".getBytes());
 
         mvc.perform(get("/api/facturas/generar-excel").param("estado", "PENDIENTE"))
                 .andExpect(status().isOk());
 
-        verify(service).buscarFacturasSinPaginar(any(), any(), eq(EstadoFactura.PENDIENTE), any());
+        verify(service).buscarFacturasSinPaginar(eq(new FacturaFiltro(null, null, EstadoFactura.PENDIENTE, null,
+                null, null, null)));
     }
 }

@@ -10,7 +10,7 @@ import com.utn.tp_spring_grupal.emisor.CondicionIvaEmisor;
 public final class TipoComprobanteResolver {
 
     /** Receptores de clase A según FEParamGetCondicionIvaReceptor: RI (1), Monotributo (6), Mono. Social (13), Mono. Promovido (16). */
-    private static final java.util.Set<Integer> RECEPTORES_CLASE_A = java.util.Set.of(1, 6, 13, 16);
+    static final java.util.Set<Integer> RECEPTORES_CLASE_A = java.util.Set.of(1, 6, 13, 16);
 
     private TipoComprobanteResolver() {
     }

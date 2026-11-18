@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -64,6 +65,10 @@ public class ListaPrecioService {
 
         Page<ListaPrecioArticulo> pagina = listaPrecioArticuloRepository.findAll(spec,
                 Busqueda.pageable(page, size, sort));
+        List<Long> ids = pagina.getContent().stream().map(lpa -> lpa.getArticulo().getId()).toList();
+        Map<Long, List<PrecioListaDTO>> precios = ids.isEmpty()
+                ? Map.of()
+                : PrecioListaDTO.porArticulo(listaPrecioArticuloRepository.findByArticuloIdIn(ids));
         return PageResponse.de(pagina, lpa -> new ListaPrecioArticuloDTO(
                         lpa.getArticulo().getId(),
                         lpa.getArticulo().getCodigo(),
@@ -71,6 +76,7 @@ public class ListaPrecioService {
                         lpa.getArticulo().getRubro() != null ? lpa.getArticulo().getRubro().getDenominacion() : null,
                         lpa.getArticulo().getMarca() != null ? lpa.getArticulo().getMarca().getDenominacion() : null,
                         lpa.getPrecioVenta(),
-                        lpa.getArticulo().getAlicuotaIva().getPorcentaje()));
+                        lpa.getArticulo().getAlicuotaIva().getPorcentaje(),
+                        precios.getOrDefault(lpa.getArticulo().getId(), List.of())));
     }
 }

@@ -1,6 +1,8 @@
 package com.utn.tp_spring_grupal.factura;
 
 import com.utn.tp_spring_grupal.cliente.Cliente;
+import com.utn.tp_spring_grupal.condicioniva.CondicionIva;
+import com.utn.tp_spring_grupal.emisor.CondicionIvaEmisor;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecio;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioArticulo;
 import com.utn.tp_spring_grupal.puntoventa.PuntoVenta;
@@ -49,8 +51,92 @@ class FacturaVentaRepositoryTest {
     }
 
     private List<FacturaVenta> buscar(LocalDate desde, LocalDate hasta, EstadoFactura estado, String monto) {
-        Specification<FacturaVenta> spec = FacturaSpecs.filtrar(desde, hasta, estado, monto != null ? new BigDecimal(monto) : null);
-        return repo.findAll(spec, ORDEN);
+        return buscar(new FacturaFiltro(desde, hasta, estado, monto != null ? new BigDecimal(monto) : null,
+                null, null, null));
+    }
+
+    private List<FacturaVenta> buscar(FacturaFiltro filtro) {
+        return buscar(filtro, CondicionIvaEmisor.RESPONSABLE_INSCRIPTO);
+    }
+
+    private List<FacturaVenta> buscar(FacturaFiltro filtro, CondicionIvaEmisor emisor) {
+        return repo.findAll(FacturaSpecs.filtrar(filtro, emisor), ORDEN);
+    }
+
+    private static FacturaFiltro porCliente(Long clienteId) {
+        return new FacturaFiltro(null, null, null, null, clienteId, null, null);
+    }
+
+    private static FacturaFiltro porTipo(TipoComprobante tipo) {
+        return new FacturaFiltro(null, null, null, null, null, tipo, null);
+    }
+
+    private static FacturaFiltro porCae(String cae) {
+        return new FacturaFiltro(null, null, null, null, null, null, cae);
+    }
+
+    /** Agrega facturas para los filtros nuevos: otro cliente (CF), una emitida tipo B con CAE y una dada de baja. */
+    private void datosExtra() {
+        TestData d = new TestData(em);
+        CondicionIva cf = d.condicionIva(5, "Consumidor Final");
+        Cliente otro = d.cliente("Ana Gomez", "27-2-2", cf);
+        ListaPrecio lista = d.lista("MIN", "Minorista");
+        ListaPrecioArticulo lpa = d.precio(lista, d.articulo("A-2", "Teclado", null, null), 10);
+        PuntoVenta pv = d.puntoVenta();
+        TipoMoneda moneda = d.moneda();
+        // Pendiente a CF: no tiene tipo guardado, resuelve B con emisor RI.
+        d.factura(EstadoFactura.PENDIENTE, LocalDate.of(2026, 5, 10), 10, null, otro, lista, pv, moneda, lpa);
+        FacturaVenta emitidaB = d.factura(EstadoFactura.EMITIDA, LocalDate.of(2026, 5, 11), 20, null, otro, lista, pv,
+                moneda, lpa);
+        emitidaB.setTipoComprobante(TipoComprobante.B.getCodigoAfip());
+        emitidaB.setCae("75123456789012");
+        FacturaVenta baja = d.factura(EstadoFactura.PENDIENTE, LocalDate.of(2026, 5, 12), 30, null, otro, lista, pv,
+                moneda, lpa);
+        baja.setFechaBaja(new java.util.Date());
+        em.flush();
+        em.clear();
+        clienteOtroId = otro.getId();
+    }
+
+    private Long clienteOtroId;
+
+    @Test
+    void excluyeLasFacturasDadasDeBaja() {
+        datosExtra();
+        assertEquals(6, buscar(null, null, null, null).size());
+    }
+
+    @Test
+    void filtraPorCliente() {
+        datosExtra();
+        List<FacturaVenta> r = buscar(porCliente(clienteOtroId));
+        assertEquals(2, r.size());
+        assertTrue(r.stream().allMatch(f -> f.getCliente().getId().equals(clienteOtroId)));
+    }
+
+    @Test
+    void filtraPorCaeQueContieneLoEscrito() {
+        datosExtra();
+        assertEquals(1, buscar(porCae("9012")).size());
+        assertEquals(1, buscar(porCae(" 75123 ")).size());
+        assertEquals(0, buscar(porCae("999")).size());
+    }
+
+    @Test
+    void filtraPorTipoUsandoElGuardadoOElQueResultaDeLaCondicionIva() {
+        datosExtra();
+        // Emisor RI: las 4 del cliente RI resuelven A; la pendiente CF resuelve B; la emitida tiene B guardado.
+        assertEquals(4, buscar(porTipo(TipoComprobante.A)).size());
+        assertEquals(2, buscar(porTipo(TipoComprobante.B)).size());
+        assertEquals(0, buscar(porTipo(TipoComprobante.C)).size());
+    }
+
+    @Test
+    void conEmisorMonotributoLasNoEmitidasSonTipoC() {
+        datosExtra();
+        // Las 5 sin tipo guardado resuelven C; la emitida conserva su B.
+        assertEquals(5, buscar(porTipo(TipoComprobante.C), CondicionIvaEmisor.MONOTRIBUTO).size());
+        assertEquals(1, buscar(porTipo(TipoComprobante.B), CondicionIvaEmisor.MONOTRIBUTO).size());
     }
 
     @Test
@@ -91,7 +177,7 @@ class FacturaVentaRepositoryTest {
 
     @Test
     void paginaConTotalesCorrectos() {
-        Specification<FacturaVenta> todas = FacturaSpecs.filtrar(null, null, null, null);
+        Specification<FacturaVenta> todas = FacturaSpecs.filtrar(FacturaFiltro.VACIO, CondicionIvaEmisor.RESPONSABLE_INSCRIPTO);
 
         Page<FacturaVenta> p0 = repo.findAll(todas, PageRequest.of(0, 3, ORDEN));
         assertEquals(3, p0.getContent().size());
@@ -105,7 +191,7 @@ class FacturaVentaRepositoryTest {
 
     @Test
     void laPaginaTraeLasRelacionesToOneSinConsultasAdicionales() {
-        Page<FacturaVenta> p = repo.findAll(FacturaSpecs.filtrar(null, null, null, null), PageRequest.of(0, 10, ORDEN));
+        Page<FacturaVenta> p = repo.findAll(FacturaSpecs.filtrar(FacturaFiltro.VACIO, CondicionIvaEmisor.RESPONSABLE_INSCRIPTO), PageRequest.of(0, 10, ORDEN));
         for (FacturaVenta f : p.getContent()) {
             var util = em.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil();
             assertTrue(util.isLoaded(f, "cliente"));

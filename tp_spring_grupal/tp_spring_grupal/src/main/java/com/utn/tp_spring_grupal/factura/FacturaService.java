@@ -37,6 +37,7 @@ import com.utn.tp_spring_grupal.listaprecio.ListaPrecio;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioArticulo;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioArticuloRepository;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioRepository;
+import com.utn.tp_spring_grupal.listaprecio.PrecioListaDTO;
 import com.utn.tp_spring_grupal.puntoventa.PuntoVenta;
 import com.utn.tp_spring_grupal.puntoventa.PuntoVentaRepository;
 import com.utn.tp_spring_grupal.tipomoneda.TipoMoneda;
@@ -424,12 +425,11 @@ public class FacturaService {
 
     /**
      * Listado paginado, ordenado por fecha de creación descendente. Las fechas son inclusivas y filtran por
-     * fecha de creación. El DTO del listado no trae renglones (detalles = null).
+     * fecha de creación; las facturas dadas de baja no se listan. El DTO del listado no trae renglones.
      */
     @Transactional(readOnly = true)
-    public PageResponse<FacturaDTO> buscarFacturas(LocalDate fechaDesde, LocalDate fechaHasta, EstadoFactura estado,
-                                                   BigDecimal montoMinimo, int page, int size) {
-        Specification<FacturaVenta> spec = FacturaSpecs.filtrar(fechaDesde, fechaHasta, estado, montoMinimo);
+    public PageResponse<FacturaDTO> buscarFacturas(FacturaFiltro filtro, int page, int size) {
+        Specification<FacturaVenta> spec = FacturaSpecs.filtrar(filtro, emisor.getCondicionIvaEmisor());
         Pageable pageable = Busqueda.pageable(page, size, ORDEN_LISTADO);
         Page<FacturaVenta> pagina = facturaVentaRepository.findAll(spec, pageable);
 
@@ -439,9 +439,8 @@ public class FacturaService {
 
     /** Mismos filtros que el listado, sin paginar (PDF / TXT). */
     @Transactional(readOnly = true)
-    public List<FacturaDTO> buscarFacturasSinPaginar(LocalDate fechaDesde, LocalDate fechaHasta,
-                                                     EstadoFactura estado, BigDecimal montoMinimo) {
-        Specification<FacturaVenta> spec = FacturaSpecs.filtrar(fechaDesde, fechaHasta, estado, montoMinimo);
+    public List<FacturaDTO> buscarFacturasSinPaginar(FacturaFiltro filtro) {
+        Specification<FacturaVenta> spec = FacturaSpecs.filtrar(filtro, emisor.getCondicionIvaEmisor());
         List<FacturaVenta> facturas = facturaVentaRepository.findAll(spec, ORDEN_LISTADO);
         Map<Long, Long> items = contarRenglones(facturas);
         return facturas.stream().map(f -> aDTO(f, items.getOrDefault(f.getId(), 0L), false)).toList();
@@ -626,17 +625,26 @@ public class FacturaService {
     }
 
     private List<FacturaDetalleDTO> detallesDTO(FacturaVenta f) {
+        List<Long> articuloIds = f.getDetalles().stream()
+                .map(d -> d.getListaPrecioArticulo().getArticulo().getId()).distinct().toList();
+        Map<Long, List<PrecioListaDTO>> precios = articuloIds.isEmpty()
+                ? Map.of()
+                : PrecioListaDTO.porArticulo(listaPrecioArticuloRepository.findByArticuloIdIn(articuloIds));
         return f.getDetalles().stream()
-                .map(d -> new FacturaDetalleDTO(
-                        d.getListaPrecioArticulo().getArticulo().getId(),
-                        d.getDescripcion(),
-                        d.getCantidad(),
-                        d.getPorcentajeBonificacion(),
-                        d.getPrecioUnitario(),
-                        d.getAlicuotaPorcentaje(),
-                        d.getImporteNeto(),
-                        d.getImporteIva(),
-                        d.getImporteSubtotal()))
+                .map(d -> {
+                    Long articuloId = d.getListaPrecioArticulo().getArticulo().getId();
+                    return new FacturaDetalleDTO(
+                            articuloId,
+                            d.getDescripcion(),
+                            d.getCantidad(),
+                            d.getPorcentajeBonificacion(),
+                            d.getPrecioUnitario(),
+                            d.getAlicuotaPorcentaje(),
+                            d.getImporteNeto(),
+                            d.getImporteIva(),
+                            d.getImporteSubtotal(),
+                            precios.getOrDefault(articuloId, List.of()));
+                })
                 .toList();
     }
 

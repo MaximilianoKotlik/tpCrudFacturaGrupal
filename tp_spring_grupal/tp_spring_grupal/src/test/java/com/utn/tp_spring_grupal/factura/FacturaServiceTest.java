@@ -25,6 +25,7 @@ import com.utn.tp_spring_grupal.listaprecio.ListaPrecio;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioArticulo;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioArticuloRepository;
 import com.utn.tp_spring_grupal.listaprecio.ListaPrecioRepository;
+import com.utn.tp_spring_grupal.listaprecio.PrecioListaDTO;
 import com.utn.tp_spring_grupal.puntoventa.PuntoVenta;
 import com.utn.tp_spring_grupal.puntoventa.PuntoVentaRepository;
 import com.utn.tp_spring_grupal.tipomoneda.TipoMoneda;
@@ -144,7 +145,7 @@ class FacturaServiceTest {
     }
 
     private FacturaDetalleDTO renglon(Long articuloId, Integer cantidad, String bonif) {
-        return new FacturaDetalleDTO(articuloId, "Mouse", cantidad, bd(bonif), null, null, null, null, null);
+        return new FacturaDetalleDTO(articuloId, "Mouse", cantidad, bd(bonif), null, null, null, null, null, null);
     }
 
     private FacturaGuardarDTO guardar(Long listaId, List<FacturaDetalleDTO> detalles) {
@@ -705,6 +706,18 @@ class FacturaServiceTest {
         assertImporte("121.00", d.importeSubtotal());
     }
 
+    @Test
+    void obtenerDevuelveElPrecioDelArticuloEnCadaListaParaRecalcularAlCambiarDeLista() {
+        facturaExistente(EstadoFactura.PENDIENTE);
+        when(lpaRepo.findByArticuloIdIn(any())).thenReturn(List.of(precioListaA, precioListaB));
+
+        FacturaDetalleDTO d = service.obtenerFactura(7L).detalles().get(0);
+
+        assertEquals(2, d.precios().size());
+        assertTrue(d.precios().contains(new PrecioListaDTO(100L, bd("100.00"))));
+        assertTrue(d.precios().contains(new PrecioListaDTO(200L, bd("250.00"))));
+    }
+
     // ---------- listado paginado ----------
 
     @Test
@@ -716,7 +729,7 @@ class FacturaServiceTest {
                 .thenAnswer(inv -> new PageImpl<>(List.of(f1, f2), inv.getArgument(1), 25));
         when(facturaRepo.contarRenglones(any())).thenReturn(List.of(new Object[] { 7L, 3L }, new Object[] { 8L, 1L }));
 
-        PageResponse<FacturaDTO> r = service.buscarFacturas(null, null, null, null, 1, 2);
+        PageResponse<FacturaDTO> r = service.buscarFacturas(FacturaFiltro.VACIO, 1, 2);
 
         assertEquals(2, r.contenido().size());
         assertEquals(1, r.pagina());
@@ -735,7 +748,7 @@ class FacturaServiceTest {
         when(facturaRepo.findAll(any(Specification.class), any(Pageable.class)))
                 .thenAnswer(inv -> new PageImpl<FacturaVenta>(List.of(), inv.getArgument(1), 0));
 
-        service.buscarFacturas(null, null, null, null, -3, 1000);
+        service.buscarFacturas(FacturaFiltro.VACIO, -3, 1000);
 
         ArgumentCaptor<Pageable> cap = ArgumentCaptor.forClass(Pageable.class);
         verify(facturaRepo).findAll(any(Specification.class), cap.capture());

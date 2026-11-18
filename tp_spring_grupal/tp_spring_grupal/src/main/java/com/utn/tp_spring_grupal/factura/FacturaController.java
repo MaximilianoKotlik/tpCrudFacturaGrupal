@@ -60,10 +60,14 @@ public class FacturaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(required = false) EstadoFactura estado,
             @RequestParam(required = false) BigDecimal montoMinimo,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) TipoComprobante tipoComprobante,
+            @RequestParam(required = false) String cae,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(
-                facturaService.buscarFacturas(fechaDesde, fechaHasta, estado, montoMinimo, page, size));
+                facturaService.buscarFacturas(
+                        new FacturaFiltro(fechaDesde, fechaHasta, estado, montoMinimo, clienteId, tipoComprobante, cae), page, size));
     }
 
     @GetMapping("/generar-pdf")
@@ -71,8 +75,12 @@ public class FacturaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(required = false) EstadoFactura estado,
-            @RequestParam(required = false) BigDecimal montoMinimo) {
-        List<FacturaDTO> datos = facturaService.buscarFacturasSinPaginar(fechaDesde, fechaHasta, estado, montoMinimo);
+            @RequestParam(required = false) BigDecimal montoMinimo,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) TipoComprobante tipoComprobante,
+            @RequestParam(required = false) String cae) {
+        List<FacturaDTO> datos = facturaService.buscarFacturasSinPaginar(
+                new FacturaFiltro(fechaDesde, fechaHasta, estado, montoMinimo, clienteId, tipoComprobante, cae));
         byte[] pdfBytes = facturaService.generarReportePDF(datos);
 
         HttpHeaders headers = new HttpHeaders();
@@ -90,8 +98,12 @@ public class FacturaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(required = false) EstadoFactura estado,
-            @RequestParam(required = false) BigDecimal montoMinimo) {
-        List<FacturaDTO> datos = facturaService.buscarFacturasSinPaginar(fechaDesde, fechaHasta, estado, montoMinimo);
+            @RequestParam(required = false) BigDecimal montoMinimo,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) TipoComprobante tipoComprobante,
+            @RequestParam(required = false) String cae) {
+        List<FacturaDTO> datos = facturaService.buscarFacturasSinPaginar(
+                new FacturaFiltro(fechaDesde, fechaHasta, estado, montoMinimo, clienteId, tipoComprobante, cae));
         byte[] txtBytes = facturaService.generarReporteExcelTxt(datos);
 
         HttpHeaders headers = new HttpHeaders();
