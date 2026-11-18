@@ -19,7 +19,7 @@ export function initEditorItems(
   errorItems: HTMLElement,
   store: ItemsStore,
   opciones: EditorItemsOpciones,
-): { agregarFila: () => void; limpiar: () => void } {
+): { agregarFila: () => void; limpiar: () => void; redibujar: () => void } {
   const { alCambiar } = opciones;
 
   function selectorArticulo(item: ItemBorrador): HTMLElement {
@@ -57,6 +57,7 @@ export function initEditorItems(
         articuloEtiqueta: `${art.codigo} · ${art.denominacion}`,
         descripcion: art.denominacion,
         precioReferencial: art.precioVenta,
+        precios: art.precios,
         alicuotaPorcentaje: art.alicuotaPorcentaje,
       });
       dibujar();
@@ -185,6 +186,10 @@ export function initEditorItems(
       alCambiar();
       const btn = body.querySelector(`tr[data-uid="${creado.uid}"] button[data-uid]`);
       if (btn instanceof HTMLButtonElement) btn.focus();
+    },
+    redibujar(): void {
+      dibujar();
+      alCambiar();
     },
     limpiar(): void {
       store.limpiar();

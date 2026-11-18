@@ -66,6 +66,20 @@ small.error {
   grid-column: 1 / -1;
 }
 
+.campo-doble {
+  grid-column: span 2;
+}
+
+/* Casilla con su texto en línea (p. ej. "Consumidor Final sin cliente"). */
+.check-en-linea {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding-inline: var(--esp-2);
+}
+
 fieldset {
   border: 1px solid var(--borde);
   border-radius: var(--radio-chico);
@@ -97,6 +111,10 @@ legend {
 @media (max-width: 480px) {
   .filtros-grid {
     grid-template-columns: 1fr;
+  }
+
+  .campo-doble {
+    grid-column: auto;
   }
 }
 
@@ -187,4 +205,9 @@ input[readonly] {
 
 fieldset > .btn {
   justify-self: start;
+}
+
+.campo-cliente {
+  display: grid;
+  gap: var(--esp-2);
 }

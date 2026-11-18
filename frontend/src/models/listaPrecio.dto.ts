@@ -4,7 +4,14 @@ export type ListaPrecioDTO = {
   readonly denominacion: string;
 };
 
-/** Artículo con el precio (neto) y la alícuota de IVA que tiene en una lista de precios concreta. */
+/** Precio (neto) de un artículo en una lista. */
+export type PrecioListaDTO = {
+  readonly listaPrecioId: number;
+  readonly precioVenta: number;
+};
+
+/** Artículo con el precio (neto) y la alícuota de IVA que tiene en una lista de precios concreta.
+ *  `precios` trae su precio en cada lista donde figura (para recalcular al cambiar de lista). */
 export type ArticuloListaDTO = {
   readonly articuloId: number;
   readonly codigo: string;
@@ -13,6 +20,7 @@ export type ArticuloListaDTO = {
   readonly marca: string | null;
   readonly precioVenta: number;
   readonly alicuotaPorcentaje: number;
+  readonly precios: readonly PrecioListaDTO[];
 };
 
 export type RubroDTO = {

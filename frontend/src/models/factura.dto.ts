@@ -1,4 +1,5 @@
 import type { EstadoFactura } from '../config/constantes';
+import type { PrecioListaDTO } from './listaPrecio.dto';
 
 /** Renglón. En entrada (POST/PUT) solo se envían articuloId, descripcion, cantidad y
  *  porcentajeBonificacion; el resto lo calcula el servidor y vuelve en las respuestas. */
@@ -13,6 +14,8 @@ export type FacturaDetalleDTO = {
     importeNeto: number;
     importeIva: number;
     importeSubtotal: number;
+    /** Precio del artículo en cada lista (solo en respuestas). */
+    precios: readonly PrecioListaDTO[];
 };
 
 /** Parte del renglón que se envía al guardar. */
@@ -23,18 +26,22 @@ export type FacturaDetalleEntradaDTO = Pick<
 
 /** Ítem en memoria del formulario. `precioReferencial` y `alicuotaPorcentaje` son solo
  *  informativos (cálculo en pantalla): el servidor recalcula desde la lista de precios.
- *  `articuloEtiqueta` es el texto que se muestra para el artículo elegido. */
+ *  `articuloEtiqueta` es el texto que se muestra para el artículo elegido.
+ *  `precios` es el precio del artículo en cada lista: con él se recalcula al cambiar de lista. */
 export type ItemEnMemoria = FacturaDetalleEntradaDTO & {
     precioReferencial: number;
+    precios: readonly PrecioListaDTO[];
     alicuotaPorcentaje: number;
     articuloEtiqueta: string;
 };
 
 /** Alta (POST) y actualización (PUT /api/facturas/{id}). La condición IVA sale del cliente
- *  y las fechas las define el servidor. Si se envía `detalles`, reemplaza todos los renglones. */
+ *  y las fechas las define el servidor. Si se envía `detalles`, reemplaza todos los renglones.
+ *  `consumidorFinal: true` factura sin cliente a un Consumidor Final (clienteId null). */
 export type FacturaGuardarDTO = {
     observaciones: string;
-    clienteId: number;
+    clienteId: number | null;
+    consumidorFinal: boolean;
     listaPrecioId: number;
     puntoVentaId: number;
     tipoMonedaId: number;
@@ -54,7 +61,8 @@ export type FacturaDTO = {
     fechaCreacion: string;
     /** ISO date; null hasta que ARCA aprueba. */
     fechaEmision: string | null;
-    clienteId: number;
+    /** null si se facturó a un Consumidor Final sin identificar. */
+    clienteId: number | null;
     clienteDenominacion: string;
     listaPrecioId: number;
     listaPrecioDenominacion: string;
@@ -84,4 +92,8 @@ export interface FacturaFiltrosDTO {
     fechaHasta?: string;
     estado?: EstadoFactura;
     montoMinimo?: number;
+    clienteId?: number;
+    tipoComprobante?: TipoComprobante;
+    /** El CAE contiene este texto. */
+    cae?: string;
 }

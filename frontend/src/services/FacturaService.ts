@@ -21,6 +21,9 @@ export class FacturaService {
       fechaHasta: filtros.fechaHasta,
       estado: filtros.estado,
       montoMinimo: filtros.montoMinimo,
+      clienteId: filtros.clienteId,
+      tipoComprobante: filtros.tipoComprobante,
+      cae: filtros.cae,
       page: pagina,
       size: tamanio,
     });
@@ -41,9 +44,14 @@ export class FacturaService {
     return peticion<FacturaDTO>(`${this.baseUrl}/${id}/emitir`, { method: 'POST' });
   }
 
-  /** Anular = baja lógica vía DELETE /{id}; 409 si está EMITIDA. La factura sigue listada como ANULADA. */
-  public anularFactura(id: number): Promise<void> {
+  /** Eliminar = baja lógica vía DELETE /{id} (PENDIENTE / ERROR_AFIP); deja de aparecer en el listado. */
+  public eliminarFactura(id: number): Promise<void> {
     return peticion<void>(`${this.baseUrl}/${id}`, { method: 'DELETE' });
+  }
+
+  /** Anular una EMITIDA (simula la Nota de Crédito): queda listada como ANULADA. */
+  public anularFactura(id: number): Promise<FacturaDTO> {
+    return peticion<FacturaDTO>(`${this.baseUrl}/${id}/anular`, { method: 'POST' });
   }
 
   /** Actualización vía PUT /{id} (409 si no es editable). */

@@ -32,6 +32,9 @@ type ClienteElegido = OpcionSelect & { readonly condicionIva: string };
 
 let dialogo: HTMLDialogElement | null = null;
 
+/** Condición IVA que se muestra al facturar sin cliente. */
+const CONDICION_CF = 'Consumidor Final';
+
 function campo(
   id: string,
   etiqueta: string,
@@ -157,6 +160,8 @@ export function abrirFacturaForm(
     }
 
     function renderForm(titulo: string, dto: FacturaDTO | null, clienteInicial: ClienteElegido | null): void {
+      /** Factura a Consumidor Final sin identificar: sin cliente (al editar, si la factura no tiene cliente). */
+      let consumidorFinal = dto !== null && dto.clienteId === null;
       const store = crearItemsStore(catalogos.emisor.discriminaIva);
       if (dto) {
         for (const det of dto.detalles ?? []) {
@@ -168,6 +173,7 @@ export function abrirFacturaForm(
             cantidad: det.cantidad,
             porcentajeBonificacion: det.porcentajeBonificacion,
             precioReferencial: det.precioUnitario,
+            precios: det.precios,
             alicuotaPorcentaje: det.alicuotaPorcentaje,
           });
         }
@@ -189,6 +195,15 @@ export function abrirFacturaForm(
       btnCliente.innerHTML = SVG_LUPA; // SVG estático propio
       const selectorCliente = crearElemento('div', 'selector');
       selectorCliente.append(iCliente, btnCliente);
+      // Sin cliente solo se puede facturar a un Consumidor Final sin identificar (como en ARCA).
+      const chkCf = crearElemento('input');
+      chkCf.id = 'ff-cf';
+      chkCf.type = 'checkbox';
+      chkCf.checked = consumidorFinal;
+      const lblCf = crearElemento('label', 'check-en-linea');
+      lblCf.append(chkCf, document.createTextNode('Consumidor Final sin cliente'));
+      const contCliente = crearElemento('div', 'campo-cliente');
+      contCliente.append(selectorCliente, lblCf);
 
       const sLista = crearSelect(
         'ff-lista',
@@ -201,7 +216,7 @@ export function abrirFacturaForm(
       iCondIva.type = 'text';
       iCondIva.readOnly = true;
       iCondIva.placeholder = 'Se completa al elegir el cliente';
-      iCondIva.value = cliente?.condicionIva ?? '';
+      iCondIva.value = consumidorFinal ? CONDICION_CF : (cliente?.condicionIva ?? '');
       const sPv = crearSelect(
         'ff-pv',
         catalogos.puntosVenta.map((p) => ({ id: p.id, texto: p.descripcion })),
@@ -228,7 +243,7 @@ export function abrirFacturaForm(
 
       const grid = crearElemento('div', 'form-grid');
       grid.append(
-        campo('ff-cliente', 'Cliente', selectorCliente),
+        campo('ff-cliente', 'Cliente', contCliente),
         campo('ff-lista', 'Lista de precios', sLista),
         campo('ff-condiva', 'Condición IVA del cliente', iCondIva),
         campo('ff-pv', 'Punto de venta', sPv),
@@ -317,27 +332,55 @@ export function abrirFacturaForm(
 
       sLista.addEventListener('change', () => {
         const nueva = sLista.value;
-        if (store.obtener().length === 0) {
+        const aplicar = (): void => {
           listaPrevia = nueva;
+          if (nueva) store.aplicarLista(Number(nueva));
+          editor.redibujar();
+          sincronizarLista();
+        };
+        // Sin lista elegida no hay precios: se conservan los renglones hasta que se elija otra.
+        if (!nueva) {
           sincronizarLista();
           return;
         }
-        // Cambiar de lista invalida precios y artículos ya cargados: confirmar y vaciar.
+        // Los renglones se repricean con la nueva lista; solo se quitan los artículos que no están en ella.
+        const { sinPrecio } = store.cambiarLista(Number(nueva));
+        if (sinPrecio.length === 0) {
+          aplicar();
+          return;
+        }
+        const nombres = sinPrecio.map((i) => i.articuloEtiqueta || i.descripcion).join(', ');
+        const uno = sinPrecio.length === 1;
         void confirmar({
           titulo: 'Cambiar lista de precios',
-          mensaje: 'Al cambiar la lista de precios se eliminarán los renglones cargados. ¿Continuar?',
-          textoAccion: 'Cambiar y vaciar',
+          mensaje: `${uno ? 'Este artículo no está' : 'Estos artículos no están'} en la nueva lista y `
+            + `${uno ? 'se quitará' : 'se quitarán'} de la factura: ${nombres}. `
+            + 'El resto de los renglones se recalcula con los precios de la nueva lista. ¿Continuar?',
+          textoAccion: uno ? 'Cambiar y quitar 1 renglón' : `Cambiar y quitar ${sinPrecio.length} renglones`,
           peligrosa: true,
         }).then((ok) => {
           if (ok) {
-            listaPrevia = nueva;
-            editor.limpiar();
+            aplicar();
           } else {
             sLista.value = listaPrevia;
+            sincronizarLista();
           }
-          sincronizarLista();
         });
       });
+
+      function sincronizarConsumidorFinal(): void {
+        iCliente.disabled = consumidorFinal;
+        btnCliente.disabled = consumidorFinal;
+        iCliente.placeholder = consumidorFinal ? 'Sin cliente' : 'Ningún cliente seleccionado';
+        iCliente.value = consumidorFinal ? '' : (cliente?.texto ?? '');
+        iCondIva.value = consumidorFinal ? CONDICION_CF : (cliente?.condicionIva ?? '');
+      }
+      chkCf.addEventListener('change', () => {
+        consumidorFinal = chkCf.checked;
+        fijarErrorCampo(iCliente, '');
+        sincronizarConsumidorFinal();
+      });
+      sincronizarConsumidorFinal();
 
       btnCliente.addEventListener('click', () => {
         void explorarClientes().then(
@@ -370,6 +413,7 @@ export function abrirFacturaForm(
         errGeneral.hidden = true;
 
         const errores = validarCabecera({
+          consumidorFinal,
           clienteId: cliente ? String(cliente.id) : '',
           listaPrecioId: sLista.value,
           puntoVentaId: sPv.value,
@@ -408,7 +452,8 @@ export function abrirFacturaForm(
         }));
         const cuerpo: FacturaGuardarDTO = {
           observaciones: iObs.value.trim(),
-          clienteId: (cliente as OpcionSelect).id,
+          clienteId: consumidorFinal ? null : (cliente as OpcionSelect).id,
+          consumidorFinal,
           listaPrecioId: Number(sLista.value),
           puntoVentaId: Number(sPv.value),
           tipoMonedaId: Number(sMoneda.value),
@@ -465,11 +510,10 @@ export function abrirFacturaForm(
             );
             return;
           }
-          const cliente: ClienteElegido = {
-            id: dto.clienteId,
-            texto: dto.clienteDenominacion,
-            condicionIva: dto.condicionIvaDenominacion,
-          };
+          const cliente: ClienteElegido | null =
+            dto.clienteId === null
+              ? null
+              : { id: dto.clienteId, texto: dto.clienteDenominacion, condicionIva: dto.condicionIvaDenominacion };
           renderForm(tituloEditar, dto, cliente);
         },
         (error: unknown) => {

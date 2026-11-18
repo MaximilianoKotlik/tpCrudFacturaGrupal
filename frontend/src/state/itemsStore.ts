@@ -66,6 +66,30 @@ export function calcularTotales(items: readonly ItemEnMemoria[], discriminaIva: 
   return { neto: neto / 100, iva: iva / 100, total: (neto + iva) / 100, porAlicuota };
 }
 
+export type ResultadoCambioLista<T extends ItemEnMemoria> = {
+  /** Renglones que siguen, con el precio de la nueva lista (los que no tienen artículo quedan igual). */
+  readonly conservados: readonly T[];
+  /** Renglones cuyo artículo no tiene precio en la nueva lista. */
+  readonly sinPrecio: readonly T[];
+};
+
+/** Reprecia los renglones con la lista indicada usando los precios por lista de cada artículo.
+ *  Cantidad, bonificación y descripción no cambian. Función pura. */
+export function repreciarConLista<T extends ItemEnMemoria>(items: readonly T[], listaPrecioId: number): ResultadoCambioLista<T> {
+  const conservados: T[] = [];
+  const sinPrecio: T[] = [];
+  for (const item of items) {
+    if (!item.articuloId) {
+      conservados.push(item);
+      continue;
+    }
+    const precio = item.precios.find((p) => p.listaPrecioId === listaPrecioId);
+    if (precio) conservados.push({ ...item, precioReferencial: precio.precioVenta });
+    else sinPrecio.push(item);
+  }
+  return { conservados, sinPrecio };
+}
+
 type Oyente = () => void;
 
 /** Estado en memoria de los renglones: la UI se re-renderiza a partir de él.
@@ -100,6 +124,7 @@ export function crearItemsStore(discriminaIva: boolean): ItemsStore {
         porcentajeBonificacion: 0,
         articuloId: 0,
         precioReferencial: 0,
+        precios: [],
         alicuotaPorcentaje: 0,
         articuloEtiqueta: '',
       };
@@ -120,6 +145,13 @@ export function crearItemsStore(discriminaIva: boolean): ItemsStore {
       items = [];
       notificar();
     },
+    cambiarLista(listaPrecioId: number): ResultadoCambioLista<ItemBorrador> {
+      return repreciarConLista(items, listaPrecioId);
+    },
+    aplicarLista(listaPrecioId: number): void {
+      items = [...repreciarConLista(items, listaPrecioId).conservados];
+      notificar();
+    },
     renglon(item: ItemEnMemoria): RenglonCalculado {
       return calcularRenglon(item, discriminaIva);
     },
@@ -137,6 +169,10 @@ export type ItemsStore = {
   readonly quitar: (uid: number) => void;
   readonly actualizar: (uid: number, cambios: Partial<ItemEnMemoria>) => void;
   readonly limpiar: () => void;
+  /** Vista previa del cambio de lista (no modifica el estado). */
+  readonly cambiarLista: (listaPrecioId: number) => ResultadoCambioLista<ItemBorrador>;
+  /** Reprecia con la lista y quita los renglones sin precio en ella. */
+  readonly aplicarLista: (listaPrecioId: number) => void;
   readonly renglon: (item: ItemEnMemoria) => RenglonCalculado;
   readonly totales: () => TotalesItems;
 };

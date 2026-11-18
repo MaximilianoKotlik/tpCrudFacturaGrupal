@@ -59,7 +59,7 @@ export async function iniciarApp(): Promise<void> {
       const resp = await servicio.obtenerFacturas(filtros, pagina, tamanio);
       if (mia !== secuencia) return;
       if (resp.contenido.length === 0 && pagina > 0 && resp.totalPaginas > 0) {
-        // La página pedida ya no existe (p. ej. se anuló el último registro): ir a la última.
+        // La página pedida ya no existe (p. ej. se eliminó el último registro): ir a la última.
         pagina = resp.totalPaginas - 1;
         await cargarListado();
         return;
@@ -111,16 +111,34 @@ export async function iniciarApp(): Promise<void> {
       await cargarListado();
       return;
     }
+    if (accion === 'anular') {
+      const ok = await confirmar({
+        titulo: 'Anular factura',
+        mensaje: `Se anulará la factura emitida ${etiquetaFactura(factura)}, como si se emitiera una nota de crédito. `
+          + 'Seguirá en el listado en estado Anulada.',
+        textoAccion: 'Anular',
+        peligrosa: true,
+      });
+      if (!ok) return;
+      try {
+        await servicio.anularFactura(factura.id);
+        mostrarToast('exito', `Factura ${etiquetaFactura(factura)} anulada.`);
+        await cargarListado();
+      } catch (error: unknown) {
+        mostrarToast('error', mensajeDeError(error));
+      }
+      return;
+    }
     const ok = await confirmar({
-      titulo: 'Anular factura',
-      mensaje: `Se anulará la factura ${etiquetaFactura(factura)} (quedará registrada como anulada).`,
-      textoAccion: 'Anular',
+      titulo: 'Eliminar factura',
+      mensaje: `Se eliminará la factura ${etiquetaFactura(factura)} y no se mostrará más en el listado.`,
+      textoAccion: 'Eliminar',
       peligrosa: true,
     });
     if (!ok) return;
     try {
-      await servicio.anularFactura(factura.id);
-      mostrarToast('exito', `Factura ${etiquetaFactura(factura)} anulada.`);
+      await servicio.eliminarFactura(factura.id);
+      mostrarToast('exito', `Factura ${etiquetaFactura(factura)} eliminada.`);
       await cargarListado();
     } catch (error: unknown) {
       mostrarToast('error', mensajeDeError(error));

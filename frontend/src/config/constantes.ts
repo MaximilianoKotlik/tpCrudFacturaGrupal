@@ -31,10 +31,17 @@ export function esEditable(estado: EstadoFactura): boolean {
   return estado === ESTADO.PENDIENTE || estado === ESTADO.ERROR_AFIP;
 }
 
-/** Anulable: solo PENDIENTE y ERROR_AFIP (una EMITIDA requeriría una Nota de Crédito). */
-export function esAnulable(estado: EstadoFactura): boolean {
+/** Eliminable (baja lógica): solo las que nunca se emitieron, PENDIENTE y ERROR_AFIP. */
+export function esEliminable(estado: EstadoFactura): boolean {
   return estado === ESTADO.PENDIENTE || estado === ESTADO.ERROR_AFIP;
 }
+
+/** Anulable: solo EMITIDA (simula la Nota de Crédito). */
+export function esAnulable(estado: EstadoFactura): boolean {
+  return estado === ESTADO.EMITIDA;
+}
+
+export const TIPOS_COMPROBANTE = ['A', 'B', 'C'] as const;
 
 /** Tamaños de página elegibles en la tabla de facturas (el primero es el inicial). */
 export const TAMANIOS_PAGINA = [10, 25, 50] as const;
