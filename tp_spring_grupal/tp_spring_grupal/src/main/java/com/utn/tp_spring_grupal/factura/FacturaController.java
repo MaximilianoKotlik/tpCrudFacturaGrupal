@@ -17,9 +17,11 @@ import java.util.List;
 public class FacturaController {
 
     private final FacturaService facturaService;
+    private final FacturaPdfGenerator pdfGenerator;
 
-    public FacturaController(FacturaService facturaService) {
+    public FacturaController(FacturaService facturaService, FacturaPdfGenerator pdfGenerator) {
         this.facturaService = facturaService;
+        this.pdfGenerator = pdfGenerator;
     }
 
     // POST: crea la factura en estado PENDIENTE (no llama a AFIP).
@@ -51,6 +53,20 @@ public class FacturaController {
     @PostMapping("/{id}/anular")
     public ResponseEntity<FacturaDTO> anularFactura(@PathVariable Long id) {
         return ResponseEntity.ok(facturaService.anularFactura(id));
+    }
+
+    // GET /{id}/pdf: comprobante autorizado (original, duplicado y triplicado) con QR, para ver o imprimir.
+    // 409 si la factura no está emitida.
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> imprimirFactura(@PathVariable Long id) {
+        ComprobantePdf comprobante = facturaService.datosComprobante(id);
+        byte[] pdf = pdfGenerator.generar(comprobante);
+        String nombre = String.format("Factura_%s_%05d-%08d.pdf", comprobante.tipo().getLetra(),
+                comprobante.puntoVenta(), comprobante.numero());
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nombre + "\"")
+                .body(pdf);
     }
 
     // GET /{id}: detalle completo (cabecera + renglones) para precargar la edición.

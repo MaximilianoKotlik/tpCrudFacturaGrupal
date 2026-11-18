@@ -10,4 +10,13 @@ public enum CondicionIvaEmisor {
     public boolean discriminaIva() {
         return this == RESPONSABLE_INSCRIPTO;
     }
+
+    /** Condición frente al IVA tal como se imprime en el comprobante. */
+    public String denominacion() {
+        return switch (this) {
+            case RESPONSABLE_INSCRIPTO -> "IVA Responsable Inscripto";
+            case MONOTRIBUTO -> "Responsable Monotributo";
+            case EXENTO -> "IVA Sujeto Exento";
+        };
+    }
 }

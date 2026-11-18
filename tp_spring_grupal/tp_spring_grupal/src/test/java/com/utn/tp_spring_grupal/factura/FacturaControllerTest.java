@@ -27,6 +27,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,6 +38,7 @@ class FacturaControllerTest {
 
     @Autowired MockMvc mvc;
     @MockBean FacturaService service;
+    @MockBean FacturaPdfGenerator pdfGenerator;
 
     private FacturaDTO factura(EstadoFactura estado) {
         return new FacturaDTO(1L, null, estado, "A", LocalDateTime.of(2026, 3, 1, 10, 30), null,
@@ -245,5 +248,33 @@ class FacturaControllerTest {
 
         verify(service).buscarFacturasSinPaginar(eq(new FacturaFiltro(null, null, EstadoFactura.PENDIENTE, null,
                 null, null, null)));
+    }
+
+    @Test
+    void imprimirDevuelveElPdfParaVerEnElNavegadorConElNombreDelComprobante() throws Exception {
+        ComprobantePdf datos = org.mockito.Mockito.mock(ComprobantePdf.class);
+        when(datos.tipo()).thenReturn(TipoComprobante.B);
+        when(datos.puntoVenta()).thenReturn(2);
+        when(datos.numero()).thenReturn(8L);
+        when(service.datosComprobante(5L)).thenReturn(datos);
+        when(pdfGenerator.generar(datos)).thenReturn("%PDF-1.7".getBytes());
+
+        mvc.perform(get("/api/facturas/5/pdf"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition",
+                        "inline; filename=\"Factura_B_00002-00000008.pdf\""))
+                .andExpect(content().bytes("%PDF-1.7".getBytes()));
+    }
+
+    @Test
+    void imprimirUnaFacturaNoEmitidaDevuelve409() throws Exception {
+        when(service.datosComprobante(5L))
+                .thenThrow(new ReglaNegocioException("Solo se puede imprimir una factura emitida."));
+
+        mvc.perform(get("/api/facturas/5/pdf"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensaje").value("Solo se puede imprimir una factura emitida."));
+        verifyNoInteractions(pdfGenerator);
     }
 }

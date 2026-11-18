@@ -12,6 +12,7 @@ import com.utn.tp_spring_grupal.afip.AfipException;
 import com.utn.tp_spring_grupal.afip.AfipWsfeService;
 import com.utn.tp_spring_grupal.afip.ComprobanteAutorizado;
 import com.utn.tp_spring_grupal.afip.DocumentoReceptor;
+import com.utn.tp_spring_grupal.afip.QrComprobante;
 import com.utn.tp_spring_grupal.afip.ReglaConsumidorFinal;
 import com.utn.tp_spring_grupal.afip.SolicitudCae;
 import com.utn.tp_spring_grupal.afip.WsfeRespuesta;
@@ -462,6 +463,71 @@ public class FacturaService {
         factura.setFechaModificacion(ahora);
         facturaVentaRepository.save(factura);
         return aDTO(factura, factura.getDetalles().size(), true);
+    }
+
+    // --------------------------------------------------------------- imprimir
+
+    /**
+     * Datos para imprimir el comprobante autorizado (EMITIDA, o ANULADA después de emitida): emisor (de la
+     * configuración), receptor, renglones, importes, CAE y el texto del QR según la especificación de ARCA.
+     */
+    @Transactional(readOnly = true)
+    public ComprobantePdf datosComprobante(Long id) {
+        FacturaVenta f = buscarOFallar(id);
+        boolean autorizada = f.getEstado() == EstadoFactura.EMITIDA || f.getEstado() == EstadoFactura.ANULADA;
+        if (!autorizada || f.getCae() == null) {
+            throw new ReglaNegocioException("Solo se puede imprimir una factura emitida: la factura está "
+                    + f.getEstado().etiqueta() + " y todavía no tiene CAE.");
+        }
+
+        String cuitEmisor = emisor.getCuit().replaceAll("[^0-9]", "");
+        Cliente cliente = f.getCliente();
+        DocumentoReceptor documento = cliente != null
+                ? DocumentoReceptor.deCuitCuil(cliente.getCuitCuil())
+                : DocumentoReceptor.CONSUMIDOR_FINAL;
+        ComprobantePdf.Receptor receptor = new ComprobantePdf.Receptor(documento,
+                cliente != null ? cliente.getDenominacion() : "Consumidor Final",
+                f.getCondicionIva().getDenominacion(),
+                cliente != null ? domicilio(cliente) : null);
+
+        TipoComprobante tipo = tipoComprobante(f);
+        BigDecimal cotizacion = f.getCotizacion() != null ? f.getCotizacion() : BigDecimal.ONE;
+        String qr = QrComprobante.url(new QrComprobante.Datos(f.getFechaEmision(),
+                cuitEmisor.isEmpty() ? 0 : Long.parseLong(cuitEmisor), f.getPuntoVenta().getNumero(),
+                tipo.getCodigoAfip(), f.getNumero(), f.getImporteTotal(), f.getTipoMoneda().getCodigoAfip(),
+                cotizacion, documento, f.getCae()));
+
+        List<ComprobantePdf.Renglon> renglones = f.getDetalles().stream()
+                .map(d -> new ComprobantePdf.Renglon(
+                        d.getListaPrecioArticulo().getArticulo().getCodigo(),
+                        d.getDescripcion(),
+                        d.getCantidad(),
+                        d.getPrecioUnitario(),
+                        d.getPorcentajeBonificacion(),
+                        d.getAlicuotaPorcentaje(),
+                        d.getImporteNeto(),
+                        d.getImporteIva(),
+                        d.getImporteSubtotal()))
+                .toList();
+
+        return new ComprobantePdf(
+                new ComprobantePdf.Emisor(emisor.getRazonSocial(), emisor.getDomicilioComercial(),
+                        emisor.getCondicionIvaEmisor().denominacion(), cuitEmisor, emisor.getIngresosBrutos(),
+                        emisor.getInicioActividades()),
+                tipo, f.getPuntoVenta().getNumero(), f.getNumero(), f.getFechaEmision(), receptor,
+                f.getTipoMoneda().getCodigoAfip(), f.getTipoMoneda().getDenominacion(), cotizacion, renglones,
+                f.getImporteNeto(), f.getImporteIva(), f.getImporteTotal(), f.getCae(), f.getCaeFechaVencimiento(),
+                f.getObservaciones(), f.getEstado() == EstadoFactura.ANULADA, qr);
+    }
+
+    private static String domicilio(Cliente cliente) {
+        if (cliente.getDomicilio() == null) {
+            return null;
+        }
+        String calle = cliente.getDomicilio().getNombreCalle() != null ? cliente.getDomicilio().getNombreCalle() : "";
+        String numero = cliente.getDomicilio().getNumeroCalle() != null ? cliente.getDomicilio().getNumeroCalle() : "";
+        String completo = (calle + " " + numero).trim();
+        return completo.isEmpty() ? null : completo;
     }
 
     // ---------------------------------------------------------------- lecturas

@@ -99,6 +99,11 @@ class FacturaServiceTest {
     @BeforeEach
     void setUp() {
         emisor = new EmisorProperties();
+        emisor.setCuit("20-11111111-2");
+        emisor.setRazonSocial("Comercial Ejemplo SRL");
+        emisor.setDomicilioComercial("Av. Siempreviva 742 - CABA");
+        emisor.setIngresosBrutos("901-123456-7");
+        emisor.setInicioActividades(LocalDate.of(2020, 3, 1));
         service = new FacturaService(facturaRepo, clienteRepo, listaRepo, lpaRepo, pvRepo, monedaRepo, usuarioRepo,
                 condicionIvaRepo, afip, emisor, tm);
 
@@ -827,6 +832,92 @@ class FacturaServiceTest {
         assertEquals(2, d.precios().size());
         assertTrue(d.precios().contains(new PrecioListaDTO(100L, bd("100.00"))));
         assertTrue(d.precios().contains(new PrecioListaDTO(200L, bd("250.00"))));
+    }
+
+    // ---------- imprimir ----------
+
+    private FacturaVenta emitida() {
+        FacturaVenta f = facturaExistente(EstadoFactura.EMITIDA);
+        f.setNumero(8L);
+        f.setTipoComprobante(1);
+        f.setFechaEmision(LocalDate.of(2026, 11, 18));
+        f.setCae("86461089472534");
+        f.setCaeFechaVencimiento(LocalDate.of(2026, 11, 28));
+        f.setCotizacion(BigDecimal.ONE);
+        f.setObservaciones("Entrega en sucursal");
+        cliente.setDomicilio(com.utn.tp_spring_grupal.cliente.Domicilio.builder().nombreCalle("San Martín")
+                .numeroCalle("123").build());
+        return f;
+    }
+
+    @Test
+    void datosDelComprobanteTraenEmisorReceptorRenglonesYCae() {
+        emitida();
+
+        ComprobantePdf c = service.datosComprobante(7L);
+
+        assertEquals("Comercial Ejemplo SRL", c.emisor().razonSocial());
+        assertEquals("20111111112", c.emisor().cuit());
+        assertEquals("IVA Responsable Inscripto", c.emisor().condicionIva());
+        assertEquals(TipoComprobante.A, c.tipo());
+        assertEquals(1, c.puntoVenta());
+        assertEquals(8L, c.numero());
+        assertEquals(new DocumentoReceptor(80, 20281234567L), c.receptor().documento());
+        assertEquals("Juan Perez", c.receptor().denominacion());
+        assertEquals("Resp. Inscripto", c.receptor().condicionIva());
+        assertEquals("San Martín 123", c.receptor().domicilio());
+        assertEquals("PES", c.monedaCodigo());
+        assertEquals(1, c.renglones().size());
+        assertEquals("ART-1", c.renglones().get(0).codigo());
+        assertImporte("121.00", c.importeTotal());
+        assertEquals("86461089472534", c.cae());
+        assertEquals(LocalDate.of(2026, 11, 28), c.caeVencimiento());
+        assertEquals(false, c.anulada());
+    }
+
+    @Test
+    void elQrDelComprobanteCodificaSusDatosSegunArca() {
+        emitida();
+
+        String url = service.datosComprobante(7L).qrUrl();
+
+        assertTrue(url.startsWith("https://www.arca.gob.ar/fe/qr/?p="));
+        String json = new String(java.util.Base64.getDecoder().decode(url.substring(url.indexOf("?p=") + 3)),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals("{\"ver\":1,\"fecha\":\"2026-11-18\",\"cuit\":20111111112,\"ptoVta\":1,\"tipoCmp\":1,"
+                + "\"nroCmp\":8,\"importe\":121,\"moneda\":\"PES\",\"ctz\":1,\"tipoDocRec\":80,"
+                + "\"nroDocRec\":20281234567,\"tipoCodAut\":\"E\",\"codAut\":86461089472534}", json);
+    }
+
+    @Test
+    void facturaSinClienteSeImprimeComoConsumidorFinalSinDocumento() {
+        FacturaVenta f = emitida();
+        f.setCliente(null);
+        f.setCondicionIva(ivaConsumidorFinal);
+        f.setTipoComprobante(6);
+
+        ComprobantePdf c = service.datosComprobante(7L);
+
+        assertEquals(DocumentoReceptor.CONSUMIDOR_FINAL, c.receptor().documento());
+        assertEquals("Consumidor Final", c.receptor().denominacion());
+        assertNull(c.receptor().domicilio());
+        assertEquals(TipoComprobante.B, c.tipo());
+    }
+
+    @Test
+    void unaFacturaAnuladaSeImprimeConLaMarcaDeAnulada() {
+        emitida().setEstado(EstadoFactura.ANULADA);
+        assertTrue(service.datosComprobante(7L).anulada());
+    }
+
+    @Test
+    void soloSeImprimeUnaFacturaConCae() {
+        facturaExistente(EstadoFactura.PENDIENTE);
+        ReglaNegocioException ex = assertThrows(ReglaNegocioException.class, () -> service.datosComprobante(7L));
+        assertTrue(ex.getMessage().contains("emitida"));
+
+        facturaExistente(EstadoFactura.ERROR_AFIP);
+        assertThrows(ReglaNegocioException.class, () -> service.datosComprobante(7L));
     }
 
     // ---------- listado paginado ----------

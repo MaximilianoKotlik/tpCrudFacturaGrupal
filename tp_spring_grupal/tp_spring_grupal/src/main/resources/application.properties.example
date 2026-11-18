@@ -24,6 +24,13 @@ afip.wsfe.url=https://wswhomo.afip.gov.ar/wsfev1/service.asmx
 # Emisor: RESPONSABLE_INSCRIPTO (comprobantes A/B, discrimina IVA) | MONOTRIBUTO | EXENTO (comprobante C)
 afip.condicion-iva-emisor=MONOTRIBUTO
 
+# Datos del emisor que se imprimen en la cabecera del PDF de la factura (el CUIT es afip.cuit)
+afip.razon-social=CAMBIAR
+afip.domicilio-comercial=CAMBIAR
+afip.ingresos-brutos=CAMBIAR
+# Fecha de inicio de actividades (yyyy-MM-dd)
+afip.inicio-actividades=2020-01-01
+
 # La cantidad de un renglon es entera: 1.5 se rechaza con 400 en vez de truncarse a 1
 spring.jackson.deserialization.accept-float-as-int=false
 

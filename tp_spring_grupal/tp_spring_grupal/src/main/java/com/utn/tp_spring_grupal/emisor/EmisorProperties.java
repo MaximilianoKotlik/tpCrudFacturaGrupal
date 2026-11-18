@@ -4,8 +4,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
-/** Configuración del emisor: afip.condicion-iva-emisor (RESPONSABLE_INSCRIPTO por defecto). */
+/**
+ * Configuración del emisor: afip.condicion-iva-emisor (RESPONSABLE_INSCRIPTO por defecto) y los datos que se
+ * imprimen en la cabecera del comprobante (afip.cuit, afip.razon-social, afip.domicilio-comercial,
+ * afip.ingresos-brutos, afip.inicio-actividades).
+ */
 @Component
 @ConfigurationProperties(prefix = "afip")
 public class EmisorProperties {
@@ -40,6 +45,55 @@ public class EmisorProperties {
 
     public void setConsumidorFinalMontoMaximo(BigDecimal consumidorFinalMontoMaximo) {
         this.consumidorFinalMontoMaximo = consumidorFinalMontoMaximo;
+    }
+
+    /** afip.cuit: CUIT del emisor (el mismo del certificado). */
+    private String cuit = "";
+    private String razonSocial = "Razón social no configurada";
+    private String domicilioComercial = "Domicilio no configurado";
+    /** afip.ingresos-brutos: número de inscripción en Ingresos Brutos (o "Exento"). */
+    private String ingresosBrutos = "-";
+    /** afip.inicio-actividades: fecha de inicio de actividades (yyyy-MM-dd). */
+    private LocalDate inicioActividades = LocalDate.of(2020, 1, 1);
+
+    public String getCuit() {
+        return cuit;
+    }
+
+    public void setCuit(String cuit) {
+        this.cuit = cuit;
+    }
+
+    public String getRazonSocial() {
+        return razonSocial;
+    }
+
+    public void setRazonSocial(String razonSocial) {
+        this.razonSocial = razonSocial;
+    }
+
+    public String getDomicilioComercial() {
+        return domicilioComercial;
+    }
+
+    public void setDomicilioComercial(String domicilioComercial) {
+        this.domicilioComercial = domicilioComercial;
+    }
+
+    public String getIngresosBrutos() {
+        return ingresosBrutos;
+    }
+
+    public void setIngresosBrutos(String ingresosBrutos) {
+        this.ingresosBrutos = ingresosBrutos;
+    }
+
+    public LocalDate getInicioActividades() {
+        return inicioActividades;
+    }
+
+    public void setInicioActividades(LocalDate inicioActividades) {
+        this.inicioActividades = inicioActividades;
     }
 
     public boolean discriminaIva() {
