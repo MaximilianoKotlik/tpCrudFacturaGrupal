@@ -52,6 +52,21 @@ export async function peticion<T>(url: string, opciones?: RequestInit): Promise<
   return JSON.parse(texto) as T;
 }
 
+/** Igual que `peticion` pero devuelve el cuerpo binario (p. ej. un PDF). */
+export async function peticionArchivo(url: string): Promise<Blob> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(url);
+  } catch {
+    throw new HttpError(0, '', 'No se pudo conectar con el sistema. Verificá tu conexión e intentá de nuevo.');
+  }
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    throw new HttpError(respuesta.status, texto, extraerMensaje(texto, respuesta.status));
+  }
+  return respuesta.blob();
+}
+
 /** Mensaje legible para mostrar en un toast, sea cual sea el error. */
 export function mensajeDeError(error: unknown): string {
   if (error instanceof HttpError) return error.message;

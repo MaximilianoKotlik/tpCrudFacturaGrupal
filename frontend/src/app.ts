@@ -111,6 +111,24 @@ export async function iniciarApp(): Promise<void> {
       await cargarListado();
       return;
     }
+    if (accion === 'imprimir') {
+      // La pestaña se abre ya (dentro del clic) para que el navegador no la bloquee; el PDF se carga después.
+      const pestania = window.open('', '_blank');
+      try {
+        const pdf = await servicio.obtenerPdf(factura.id);
+        const url = URL.createObjectURL(pdf);
+        if (pestania) {
+          pestania.location.href = url;
+        } else {
+          window.open(url, '_blank');
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error: unknown) {
+        pestania?.close();
+        mostrarToast('error', mensajeDeError(error));
+      }
+      return;
+    }
     if (accion === 'anular') {
       const ok = await confirmar({
         titulo: 'Anular factura',

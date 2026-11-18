@@ -163,3 +163,7 @@ td.acciones .btn {
   background: var(--rojo-fondo);
   color: var(--peligro);
 }
+
+.btn-imprimir:hover:not(:disabled) {
+  color: var(--acento);
+}

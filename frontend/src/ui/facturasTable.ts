@@ -1,11 +1,11 @@
 import type { FacturaDTO } from '../models/factura.dto';
-import { ESTADO, ESTADO_INFO, esAnulable, esEditable, esEliminable } from '../config/constantes';
+import { ESTADO, ESTADO_INFO, esAnulable, esEditable, esEliminable, esImprimible } from '../config/constantes';
 import { crearElemento, limpiarHijos, qs } from '../utils/dom';
 import { etiquetaFactura, formatearFechaISO, formatearMoneda } from '../utils/formato';
 
-export type AccionFila = 'editar' | 'emitir' | 'eliminar' | 'anular';
+export type AccionFila = 'editar' | 'emitir' | 'imprimir' | 'eliminar' | 'anular';
 
-const ACCIONES: readonly AccionFila[] = ['editar', 'emitir', 'eliminar', 'anular'];
+const ACCIONES: readonly AccionFila[] = ['editar', 'emitir', 'imprimir', 'eliminar', 'anular'];
 
 function esAccionFila(valor: string | undefined): valor is AccionFila {
   return (ACCIONES as readonly (string | undefined)[]).includes(valor);
@@ -17,13 +17,15 @@ export type TablaCallbacks = {
 
 const ATRIBUTOS_SVG =
   'viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-// Papelera (eliminar), círculo tachado (anular) y lápiz (editar): SVG estático propio.
+// Papelera (eliminar), círculo tachado (anular), lápiz (editar) e impresora (imprimir): SVG estático propio.
+const SVG_IMPRIMIR = `<svg ${ATRIBUTOS_SVG}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`;
 const SVG_ANULAR = `<svg ${ATRIBUTOS_SVG}><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>`;
 const SVG_ELIMINAR = `<svg ${ATRIBUTOS_SVG}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
 const SVG_EDITAR = `<svg ${ATRIBUTOS_SVG}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
 
 const ICONOS: Record<Exclude<AccionFila, 'emitir'>, string> = {
   editar: SVG_EDITAR,
+  imprimir: SVG_IMPRIMIR,
   eliminar: SVG_ELIMINAR,
   anular: SVG_ANULAR,
 };
@@ -109,7 +111,11 @@ export function initTablaFacturas(cb: TablaCallbacks): {
 
     const editable = esEditable(f.estado);
     const ref = etiquetaFactura(f);
-    const btnEditar = botonIcono('editar', `Editar factura ${ref}`, !editable);
+    const imprimible = esImprimible(f.estado);
+    // Una factura con CAE no se edita: en su lugar se imprime el comprobante.
+    const btnEditar = imprimible
+      ? botonIcono('imprimir', `Ver e imprimir la factura ${ref}`, false)
+      : botonIcono('editar', `Editar factura ${ref}`, !editable);
     const btnEmitir = botonIcono('emitir', `Emitir factura ${ref}`, !editable);
     // Las no emitidas se eliminan (dejan de listarse); las emitidas se anulan (simula la Nota de Crédito).
     const btnBaja = esAnulable(f.estado)

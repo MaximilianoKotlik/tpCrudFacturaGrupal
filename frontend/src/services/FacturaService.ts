@@ -1,7 +1,7 @@
 import type { FacturaDTO, FacturaFiltrosDTO, FacturaGuardarDTO } from '../models/factura.dto';
 import type { PageResponse } from '../models/page.dto';
 import { RUTAS } from '../config/api';
-import { construirQuery, peticion } from './httpClient';
+import { construirQuery, peticion, peticionArchivo } from './httpClient';
 
 function jsonConCuerpo(method: 'POST' | 'PUT', body: unknown): RequestInit {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -52,6 +52,11 @@ export class FacturaService {
   /** Anular una EMITIDA (simula la Nota de Crédito): queda listada como ANULADA. */
   public anularFactura(id: number): Promise<FacturaDTO> {
     return peticion<FacturaDTO>(`${this.baseUrl}/${id}/anular`, { method: 'POST' });
+  }
+
+  /** PDF del comprobante autorizado (original, duplicado y triplicado, con QR). 409 si no está emitida. */
+  public obtenerPdf(id: number): Promise<Blob> {
+    return peticionArchivo(`${this.baseUrl}/${id}/pdf`);
   }
 
   /** Actualización vía PUT /{id} (409 si no es editable). */

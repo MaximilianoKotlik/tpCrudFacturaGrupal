@@ -41,6 +41,11 @@ export function esAnulable(estado: EstadoFactura): boolean {
   return estado === ESTADO.EMITIDA;
 }
 
+/** Imprimible: tiene CAE (EMITIDA, o ANULADA después de emitida). */
+export function esImprimible(estado: EstadoFactura): boolean {
+  return estado === ESTADO.EMITIDA || estado === ESTADO.ANULADA;
+}
+
 export const TIPOS_COMPROBANTE = ['A', 'B', 'C'] as const;
 
 /** Tamaños de página elegibles en la tabla de facturas (el primero es el inicial). */
